@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.1.xsd">
+
+	<bean id="privateKeyFactoryBean" class="org.jasig.cas.util.PrivateKeyFactoryBean"
+		p:location="${java:comp/env/url/casKeysFolder}/MMprivateKey.p8.der" 
+		p:algorithm="RSA" />
+	
+	<bean id="horoquartzPrivateKeyFactoryBean" class="org.jasig.cas.util.PrivateKeyFactoryBean"
+		p:location="${java:comp/env/url/casKeysFolder}/horoquartzKeys/MMprivateKey.p8.der" 
+		p:algorithm="RSA" />
+		
+	<bean id="certificateFactoryBean" class="fr.si2m.socle.security.auth.cas.util.X509CertificateFactoryBean"
+		p:location="${java:comp/env/url/casKeysFolder}/MMcertificate.x509.pem" />
+
+	<bean id="horoquartzCertificateFactoryBean" class="fr.si2m.socle.security.auth.cas.util.X509CertificateFactoryBean"
+		p:location="${java:comp/env/url/casKeysFolder}/horoquartzKeys/MMcertificate.x509.pem" />
+
+	<bean id="publicKeyFactoryBean" class="org.jasig.cas.util.PublicKeyFactoryBean"
+		p:location="${java:comp/env/url/casKeysFolder}/MMpublicKey.x509.der" 
+		p:algorithm="RSA" />
+
+	<bean id="horoquartzSpConfig" class="fr.si2m.socle.security.auth.cas.saml2.ServiceProviderConfig"
+		p:alternateUserName="SAMAccountName" 
+		p:privateKey="horoquartzPrivateKeyFactoryBean" 
+		p:x509certificate="horoquartzCertificateFactoryBean" 
+		p:spIssuerUrl="malakoff-mederic-preprod.aspaway.net" 
+		p:idpIssuerUrl="sso.recf.malakoffmederic.com" 
+		p:assertionConsumerServiceUrl="https://malakoff-mederic-preprod.aspaway.net/Shibboleth.sso/SAML2/POST" >
+		<property name="attributeList">
+			<util:list>
+				<util:list>
+					<value>urn:oid:1.2.840.113556.1.4.221</value>
+					<value>urn:oasis:names:tc:SAML:2.0:attrname-format:uri</value>
+					<util:constant static-field="fr.si2m.socle.security.auth.cas.authentication.principal.Saml2AccountsService.USER_ID"/>
+				</util:list>
+			</util:list>
+		</property>
+	</bean>
+	
+	<util:list id="Saml2configList">
+		<ref bean="horoquartzSpConfig"/>
+	</util:list>
+
+</beans>
