@@ -18,21 +18,25 @@ import org.opensaml.xml.io.UnmarshallerFactory;
 import org.opensaml.xml.io.UnmarshallingException;
 import org.opensaml.xml.parse.BasicParserPool;
 import org.opensaml.xml.parse.XMLParserException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 /**
  * Working process principles :
  *
- * |
- * |
- * Build
- * |
- * |
- * V
- * XML --Parse--> DOM --Unmarshall--> Java Objects --Marshall--> DOM --Serialize--> XML
+ *                                          |
+ *                                          |
+ *                                        Build
+ *                                          |
+ *                                          |
+ *                                          V
+ *	XML --Parse--> DOM --Unmarshall--> Java Objects --Marshall--> DOM --Serialize--> XML
  */
 public class SAML2RequestReader {
+	
+	private static final Logger	LOGGER	= LoggerFactory.getLogger(SAML2RequestReader.class);
 
 	static {
 		// a voir pour charger conf samlV2 si besoin.
@@ -40,9 +44,7 @@ public class SAML2RequestReader {
 			// Initialize the library
 			OpenSamlBootstrap.bootstrap();
 		} catch (ConfigurationException e) {
-			// TODO Auto-generated catch block
-			// TODO Logger
-			e.printStackTrace();
+			LOGGER.error("Error in initializing the OpenSAML library, loading default configurations.", e);
 		}
 	}
 
