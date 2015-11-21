@@ -15,17 +15,17 @@
 		p:location="${java:comp/env/url/casKeysFolder}/horoquartzKeys/MMprivateKey.p8.der" 
 		p:algorithm="RSA" />
 		
-	<bean id="certificateFactoryBean" class="fr.si2m.socle.security.auth.cas.util.X509CertificateFactoryBean"
+	<bean id="certificateFactoryBean" class="org.jasig.cas.saml2.util.X509CertificateFactoryBean"
 		p:location="${java:comp/env/url/casKeysFolder}/MMcertificate.x509.pem" />
 
-	<bean id="horoquartzCertificateFactoryBean" class="fr.si2m.socle.security.auth.cas.util.X509CertificateFactoryBean"
+	<bean id="horoquartzCertificateFactoryBean" class="org.jasig.cas.saml2.util.X509CertificateFactoryBean"
 		p:location="${java:comp/env/url/casKeysFolder}/horoquartzKeys/MMcertificate.x509.pem" />
 
 	<bean id="publicKeyFactoryBean" class="org.jasig.cas.util.PublicKeyFactoryBean"
 		p:location="${java:comp/env/url/casKeysFolder}/MMpublicKey.x509.der" 
 		p:algorithm="RSA" />
 
-	<bean id="horoquartzSpConfig" class="fr.si2m.socle.security.auth.cas.saml2.ServiceProviderConfig"
+	<bean id="horoquartzSpConfig" class="org.jasig.cas.saml2.support.ServiceProviderConfig"
 		p:alternateUserName="SAMAccountName" 
 		p:privateKey="horoquartzPrivateKeyFactoryBean" 
 		p:x509certificate="horoquartzCertificateFactoryBean" 

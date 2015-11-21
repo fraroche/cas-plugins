@@ -10,8 +10,6 @@ import java.util.UUID;
 import java.util.zip.InflaterInputStream;
 
 import javax.validation.constraints.NotNull;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.joda.time.DateTime;
@@ -66,6 +64,7 @@ import org.opensaml.xml.encryption.EncryptionConstants;
 import org.opensaml.xml.io.Marshaller;
 import org.opensaml.xml.io.MarshallerFactory;
 import org.opensaml.xml.io.MarshallingException;
+import org.opensaml.xml.parse.XMLParserException;
 import org.opensaml.xml.schema.XSString;
 import org.opensaml.xml.security.SecurityConfiguration;
 import org.opensaml.xml.security.SecurityException;
@@ -110,15 +109,15 @@ public class SAML2ResponseBuilder {
 
 		Element lOutDomRoot = null;
 		Document lOutDom = null;
-		DocumentBuilder lDocBuilder = null;
-		DocumentBuilderFactory lDocBuilderFactory = null;
 		
 		lOutDomRoot = marshallObject(pInSamlObject);
 		
-		lDocBuilderFactory = DocumentBuilderFactory.newInstance();
-		lDocBuilder = lDocBuilderFactory.newDocumentBuilder();
-		lOutDom = lDocBuilder.newDocument();
-		lOutDom.appendChild(lOutDomRoot);
+		try {
+			lOutDom = Configuration.getParserPool().newDocument();
+			lOutDom.appendChild(lOutDomRoot);
+		} catch (XMLParserException e) {
+			e.printStackTrace();
+		}
 		    
 		return lOutDom;
 	}
