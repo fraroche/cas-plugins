@@ -37,7 +37,7 @@
 				<util:list>
 					<value>urn:oid:1.2.840.113556.1.4.221</value>
 					<value>urn:oasis:names:tc:SAML:2.0:attrname-format:uri</value>
-					<util:constant static-field="fr.si2m.socle.security.auth.cas.authentication.principal.Saml2AccountsService.USER_ID"/>
+					<util:constant static-field="org.jasig.cas.saml2.support.ServiceProviderConfig.USER_ID"/>
 				</util:list>
 			</util:list>
 		</property>
