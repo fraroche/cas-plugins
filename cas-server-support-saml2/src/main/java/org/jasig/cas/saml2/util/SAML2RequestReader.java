@@ -16,7 +16,7 @@ import org.opensaml.xml.XMLObject;
 import org.opensaml.xml.io.Unmarshaller;
 import org.opensaml.xml.io.UnmarshallerFactory;
 import org.opensaml.xml.io.UnmarshallingException;
-import org.opensaml.xml.parse.BasicParserPool;
+import org.opensaml.xml.parse.ParserPool;
 import org.opensaml.xml.parse.XMLParserException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +35,7 @@ import org.w3c.dom.Element;
  *	XML --Parse--> DOM --Unmarshall--> Java Objects --Marshall--> DOM --Serialize--> XML
  */
 public class SAML2RequestReader {
-	
+
 	private static final Logger	LOGGER	= LoggerFactory.getLogger(SAML2RequestReader.class);
 
 	static {
@@ -52,22 +52,28 @@ public class SAML2RequestReader {
 	}
 
 	public static Document parseXML(final String pInXml) throws XMLParserException {
+		LOGGER.trace("> parseXML()");
+
 		// Get parser pool manager
-		BasicParserPool lBasicParserPool = new BasicParserPool();
-		lBasicParserPool.setNamespaceAware(true);
+		ParserPool lBasicParserPool;
+
+		lBasicParserPool = Configuration.getParserPool();
 
 		Reader lInXml = new StringReader(pInXml);
-		Document lOutDom = null;
+		Document lOutDom;
 
 		// Parse SAML Request
 		lOutDom = lBasicParserPool.parse(lInXml);
 
+		LOGGER.trace("< parseXML()");
 		return lOutDom;
 	}
 
 	public static XMLObject unmarshallDOM(final Document pInDom) throws UnmarshallingException {
+		LOGGER.trace("> unmarshallDOM()");
+
 		Element lInDomRoot = null;
-		XMLObject lOpenSamlXMLObject = null;
+		XMLObject lOpenSamlXMLObject;
 		lInDomRoot = pInDom.getDocumentElement();
 
 		// Get apropriate unmarshaller
@@ -76,10 +82,14 @@ public class SAML2RequestReader {
 
 		// Unmarshall using the document root element
 		lOpenSamlXMLObject = lUnmarshaller.unmarshall(lInDomRoot);
+
+		LOGGER.trace("< unmarshallDOM()");
 		return lOpenSamlXMLObject;
 	}
 
 	public static XMLObject parseAndUnmarshall(final String pInXml) throws XMLParserException, UnmarshallingException {
+		LOGGER.trace("> parseAndUnmarshall()");
+
 		Document lInDom = null;
 		XMLObject lOpenSamlXMLObject = null;
 		// Parse SAML
@@ -87,60 +97,75 @@ public class SAML2RequestReader {
 
 		// Unmarshall DOM
 		lOpenSamlXMLObject = unmarshallDOM(lInDom);
+
+		LOGGER.trace("< parseAndUnmarshall()");
 		return lOpenSamlXMLObject;
 	}
 
 	public static AuthnRequest getAuthnRequest(final String pXmlSamlRequest) {
+		LOGGER.trace("> getAuthnRequest()");
+
 		AuthnRequest lAuthnRequest = null;
 		try {
 			lAuthnRequest = (AuthnRequest) parseAndUnmarshall(pXmlSamlRequest);
 		} catch (XMLParserException e) {
-			// TODO Logger
-			System.err.println(e);
-			e.printStackTrace();
+			LOGGER.error("Error while parsing an XML file using a pooled builder. It could be due to a problem retrieving a builder, the input stream can not be read, or the XML was invalid", e);
 		} catch (UnmarshallingException e) {
-			// TODO Logger
-			System.err.println(e);
-			e.printStackTrace();
+			LOGGER.error("Error while wnmarshalling the given W3C DOM element into a XMLObject.", e);
 		}
+
+		LOGGER.trace("< getAuthnRequest()");
 		return lAuthnRequest;
 	}
 
 	public static String getIssuerValue(final AuthnRequest pAuthnRequest) {
+		LOGGER.trace("> getIssuerValue()");
+
 		Issuer lIssuer = pAuthnRequest.getIssuer();
-		return lIssuer.getValue();
+		String lIssuerValue = null;
+
+		if (lIssuer != null) {
+			lIssuerValue = lIssuer.getValue();
+		}
+
+		LOGGER.trace("< getIssuerValue()");
+		return lIssuerValue;
 	}
 
-	public static String decodeAuthnRequestXML(final String pEncodedRequestXmlString) {
-		if (pEncodedRequestXmlString == null) {
-			return null;
+	public static String decodeXMLAuthnRequest(final String pEncodedRequestXmlString) {
+		LOGGER.trace("> decodeXMLAuthnRequest()");
+
+		String lDecodedXMLAuthnRequest = null;
+		if (pEncodedRequestXmlString != null) {
+			byte[] lDecodedBytes;
+			if ((lDecodedBytes = SAML2RequestReader.base64Decode(pEncodedRequestXmlString)) != null) {
+				lDecodedXMLAuthnRequest = SAML2RequestReader.inflate(lDecodedBytes);
+			}
 		}
 
-		final byte[] lDecodedBytes = SAML2RequestReader.base64Decode(pEncodedRequestXmlString);
-
-		if (lDecodedBytes == null) {
-			return null;
-		}
-
-		final String lInflated = SAML2RequestReader.inflate(lDecodedBytes);
-
-		if (lInflated != null) {
-			return lInflated;
-		}
-		// TODO check if this piece of code is correct, I don't understand why you deflate a non-deflated message
-		return SAML2ResponseBuilder.zlibDeflate(lDecodedBytes);
+		LOGGER.trace("< decodeXMLAuthnRequest()");
+		return lDecodedXMLAuthnRequest;
 	}
 
 	public static byte[] base64Decode(final String pXml) {
+		LOGGER.trace("> base64Decode()");
+
+		byte[] lXmlBytes = null;
 		try {
-			final byte[] lXmlBytes = pXml.getBytes("UTF-8");
-			return Base64.decodeBase64(lXmlBytes);
-		} catch (final Exception e) {
-			return null;
+			lXmlBytes = pXml.getBytes("UTF-8");
+			lXmlBytes = Base64.decodeBase64(lXmlBytes);
+		} catch (final UnsupportedEncodingException e) {
+			LOGGER.error("Error while encoding a string into a sequence of bytes using the named charset. Occurs if the named charset is not supported", e);
 		}
+
+		LOGGER.trace("< base64Decode()");
+		return lXmlBytes;
 	}
 
 	public static String inflate(final byte[] pBytes) {
+		LOGGER.trace("> inflate()");
+
+		String lUncompressedString = null;
 		final Inflater lInflater = new Inflater(true);
 		final byte[] lXmlMessageBytes = new byte[10000];
 
@@ -155,15 +180,20 @@ public class SAML2RequestReader {
 			lInflater.end();
 
 			if (!lInflater.finished()) {
+				LOGGER.error("buffer not large enough.");
 				throw new RuntimeException("buffer not large enough.");
 			}
 
 			lInflater.end();
-			return new String(lXmlMessageBytes, 0, resultLength, "UTF-8");
+			lUncompressedString = new String(lXmlMessageBytes, 0, resultLength, "UTF-8");
 		} catch (final DataFormatException e) {
-			return null;
+			LOGGER.error("Error while uncompressing byte array into specified buffer. Occurs if the compressed data format is invalid", e);
 		} catch (final UnsupportedEncodingException e) {
+			LOGGER.error("Cannot find encoding: UTF-8", e);
 			throw new RuntimeException("Cannot find encoding: UTF-8", e);
 		}
+
+		LOGGER.trace("< inflate()");
+		return lUncompressedString;
 	}
 }
