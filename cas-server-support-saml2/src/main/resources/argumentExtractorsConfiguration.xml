@@ -6,77 +6,36 @@
        xmlns:util="http://www.springframework.org/schema/util"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
        http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.1.xsd">
-
+	
 	<description>
 		Argument Extractors are what are used to translate HTTP requests into requests of the appropriate protocol (i.e. CAS, SAML, SAML2,
 		OpenId, etc.).  By default CAS and SAML are enabled.
 	</description>
 	
 	<import resource="${java:comp/env/url/casConfiguration}/Saml2Configurer.xml"/>
-
+	
 	<bean id="casArgumentExtractor" class="org.jasig.cas.web.support.CasArgumentExtractor"
 		p:httpClient-ref="noRedirectHttpClient" 
 		p:disableSingleSignOut="${slo.callbacks.disabled:false}" />
-
+	
 	<bean id="samlArgumentExtractor" class="org.jasig.cas.web.support.SamlArgumentExtractor"
 		p:httpClient-ref="noRedirectHttpClient" 
 		p:disableSingleSignOut="${slo.callbacks.disabled:false}" />
-
-	<bean id="googleAccountsArgumentExtractor"
-		class="org.jasig.cas.web.support.GoogleAccountsArgumentExtractor"
+	
+	<bean id="googleAccountsArgumentExtractor" class="org.jasig.cas.web.support.GoogleAccountsArgumentExtractor"
 		p:alternateUsername="EmailAddress" 
 		p:privateKey-ref="privateKeyFactoryBean"
 		p:publicKey-ref="publicKeyFactoryBean" 
 		p:httpClient-ref="httpClient" />
 		
-<!-- SI2M begin of conf changes -->
-	<bean id="adpAccountsArgumentExtractor"
-		class="fr.si2m.socle.security.auth.cas.web.support.AdpAccountsArgumentExtractor"
-		p:alternateUsername="EmailAddress" 
-		p:privateKey-ref="privateKeyFactoryBean"
-		p:x509certificate-ref="certificateFactoryBean" 
+	<bean id="saml2AccountsArgumentExtractor" class="org.jasig.cas.web.support.Saml2AccountsArgumentExtractor" 
 		p:httpClient-ref="httpClient" 
-		p:spIssuerUrl="https://ehctest1.fr.adp.com" />
-
-	<bean id="talentSoftAccountsArgumentExtractor"
-		class="fr.si2m.socle.security.auth.cas.web.support.TalentSoftAccountsArgumentExtractor"
-		p:alternateUsername="SAMAccountName" 
-		p:privateKey-ref="privateKeyFactoryBean"
-		p:x509certificate-ref="certificateFactoryBean"
-		p:httpClient-ref="httpClient" />
-
-	<bean id="horoquartzAccountsArgumentExtractor"
-		class="fr.si2m.socle.security.auth.cas.web.support.Saml2AccountsArgumentExtractor"
-		p:alternateUsername="SAMAccountName" 
-		p:privateKey-ref="horoquartzPrivateKeyFactoryBean"
-		p:x509certificate-ref="horoquartzCertificateFactoryBean"
-		p:httpClient-ref="httpClient"
-		p:spIssuerUrl="malakoff-mederic-preprod.aspaway.net" 
-		p:idpIssuerUrl="sso.recf.malakoffmederic.com" 
-		p:assertionConsumerServiceUrl="https://malakoff-mederic-preprod.aspaway.net/Shibboleth.sso/SAML2/POST">
-		<property name="attributeList">
-			<util:list>
-				<util:list>
-					<value>urn:oid:1.2.840.113556.1.4.221</value>
-					<value>urn:oasis:names:tc:SAML:2.0:attrname-format:uri</value>
-					<util:constant static-field="fr.si2m.socle.security.auth.cas.authentication.principal.Saml2AccountsService.USER_ID"/>
-				</util:list>
-			</util:list>
-		</property>
-	</bean>
+		p:serviceProviderConfig-ref="Saml2configList" />
 	
-	<bean id="saml2AccountsArgumentExtractor"
-		class="fr.si2m.socle.security.auth.cas.web.support.Saml2GenericAccountsArgumentExtractor" 
-		p:httpClient="httpClient" 
-		p:serviceProviderConfig=""></bean>
-
 	<util:list id="argumentExtractors">
 		<ref bean="casArgumentExtractor" />
 		<ref bean="samlArgumentExtractor" />
-		<ref bean="talentSoftAccountsArgumentExtractor" />
-		<ref bean="horoquartzAccountsArgumentExtractor" />
 		<ref bean="googleAccountsArgumentExtractor" />
-		<ref bean="adpAccountsArgumentExtractor" />
 		<ref bean="saml2AccountsArgumentExtractor" />
 	</util:list>
 <!-- SI2M end of conf changes -->

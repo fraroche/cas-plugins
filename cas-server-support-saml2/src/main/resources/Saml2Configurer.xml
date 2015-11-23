@@ -10,16 +10,9 @@
 	<bean id="privateKeyFactoryBean" class="org.jasig.cas.util.PrivateKeyFactoryBean"
 		p:location="${java:comp/env/url/casKeysFolder}/MMprivateKey.p8.der" 
 		p:algorithm="RSA" />
-	
-	<bean id="horoquartzPrivateKeyFactoryBean" class="org.jasig.cas.util.PrivateKeyFactoryBean"
-		p:location="${java:comp/env/url/casKeysFolder}/horoquartzKeys/MMprivateKey.p8.der" 
-		p:algorithm="RSA" />
 		
 	<bean id="certificateFactoryBean" class="org.jasig.cas.saml2.util.X509CertificateFactoryBean"
 		p:location="${java:comp/env/url/casKeysFolder}/MMcertificate.x509.pem" />
-
-	<bean id="horoquartzCertificateFactoryBean" class="org.jasig.cas.saml2.util.X509CertificateFactoryBean"
-		p:location="${java:comp/env/url/casKeysFolder}/horoquartzKeys/MMcertificate.x509.pem" />
 
 	<bean id="publicKeyFactoryBean" class="org.jasig.cas.util.PublicKeyFactoryBean"
 		p:location="${java:comp/env/url/casKeysFolder}/MMpublicKey.x509.der" 
@@ -27,8 +20,8 @@
 
 	<bean id="horoquartzSpConfig" class="org.jasig.cas.saml2.support.ServiceProviderConfig"
 		p:alternateUserName="SAMAccountName" 
-		p:privateKey="horoquartzPrivateKeyFactoryBean" 
-		p:x509certificate="horoquartzCertificateFactoryBean" 
+		p:privateKey-ref="privateKeyFactoryBean" 
+		p:x509certificate-ref="certificateFactoryBean" 
 		p:spIssuerUrl="malakoff-mederic-preprod.aspaway.net" 
 		p:idpIssuerUrl="sso.recf.malakoffmederic.com" 
 		p:assertionConsumerServiceUrl="https://malakoff-mederic-preprod.aspaway.net/Shibboleth.sso/SAML2/POST" >

@@ -7,6 +7,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -193,7 +194,7 @@ public class ServiceProviderConfig implements Serializable {
 	 * }
 	 * </pre>
 	 */
-	private List<List<String>>	attributeList;
+	private ArrayList<ArrayList<String>>	attributeList;
 
 	// ----------------------------------------------------------------------------
 
@@ -289,7 +290,7 @@ public class ServiceProviderConfig implements Serializable {
 	/**
 	 * @param pAttributeList the attributeList to set
 	 */
-	public void setAttributeList(final List<List<String>> pAttributeList) {
+	public void setAttributeList(final ArrayList<ArrayList<String>> pAttributeList) {
 		this.attributeList = pAttributeList;
 	}
 
