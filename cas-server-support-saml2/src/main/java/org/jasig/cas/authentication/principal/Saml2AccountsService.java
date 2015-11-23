@@ -1,6 +1,6 @@
 package org.jasig.cas.authentication.principal;
 
-import org.jasig.cas.saml2.support.ServiceProviderConfig;
+import org.jasig.cas.saml2.support.ServiceProvider;
 import org.jasig.cas.saml2.util.SAML2RequestReader;
 import org.opensaml.saml2.core.AuthnRequest;
 
@@ -10,7 +10,7 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 
 	// ----------------------------------------------------------------------------
 	// Execution Variables
-	private final ServiceProviderConfig	spConfig;
+	private final ServiceProvider	spConfig;
 
 	private final String				relayState;
 
@@ -19,7 +19,7 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 	private transient AuthnRequest		authnRequest		= null;
 	// ----------------------------------------------------------------------------
 
-	public Saml2AccountsService(final String pAssertionConsumerServiceUrl, final String pRelayState, final ServiceProviderConfig pSpConfig) {
+	public Saml2AccountsService(final String pAssertionConsumerServiceUrl, final String pRelayState, final ServiceProvider pSpConfig) {
 		super(pAssertionConsumerServiceUrl, pAssertionConsumerServiceUrl, null, null);
 		this.spConfig = pSpConfig;
 		this.relayState = pRelayState;
@@ -43,7 +43,7 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 	/**
 	 * @return the spConfig
 	 */
-	public ServiceProviderConfig getSpConfig() {
+	public ServiceProvider getSpConfig() {
 		return spConfig;
 	}
 

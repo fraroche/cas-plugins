@@ -33,11 +33,11 @@ import org.opensaml.xml.signature.Signer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ServiceProviderConfig implements Serializable {
+public class ServiceProvider implements Serializable {
 
 	private static final long				serialVersionUID					= -2339718197074244232L;
 
-	private static final Logger				LOGGER								= LoggerFactory.getLogger(ServiceProviderConfig.class);
+	private static final Logger				LOGGER								= LoggerFactory.getLogger(ServiceProvider.class);
 
 	/**
 	 * This constant is to be used in Spring configuration XML file when you need to reference a Saml Attribute value.<br>
@@ -300,7 +300,7 @@ public class ServiceProviderConfig implements Serializable {
 
 	// ----------------------------------------------------------------------------
 
-	public boolean isAppropriateSpConfig(@NotNull
+	public boolean isAppropriateServiceProvider(@NotNull
 	final Issuer pIssuer) {
 		LOGGER.trace("> isAppropriateSpConfig()");
 

@@ -8,7 +8,7 @@ import javax.validation.constraints.Size;
 
 import org.jasig.cas.authentication.principal.Saml2AccountsService;
 import org.jasig.cas.authentication.principal.WebApplicationService;
-import org.jasig.cas.saml2.support.ServiceProviderConfig;
+import org.jasig.cas.saml2.support.ServiceProvider;
 import org.jasig.cas.saml2.util.SAML2RequestReader;
 import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.Issuer;
@@ -25,7 +25,7 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 
 	@NotNull
 	@Size(min = 1)
-	private List<ServiceProviderConfig>	serviceProviderConfig;
+	private List<ServiceProvider>	serviceProviderConfig;
 
 	@Override
 	protected WebApplicationService extractServiceInternal(final HttpServletRequest pRequest) {
@@ -37,7 +37,7 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 		final String lXmlRequest = SAML2RequestReader.decodeXMLAuthnRequest(pRequest.getParameter(Saml2AccountsArgumentExtractor.CONST_PARAM_SERVICE));
 		AuthnRequest lAuthnRequest = null;
 		Issuer lIssuer = null;
-		ServiceProviderConfig lSpConfig = null;
+		ServiceProvider lSpConfig = null;
 		String lAssertionConsumerServiceUrl = null;
 		WebApplicationService lService = null;
 		
@@ -67,11 +67,11 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 		return lService;
 	}
 
-	private ServiceProviderConfig findAppropriateSpConfig(final Issuer pIssuer) {
+	private ServiceProvider findAppropriateSpConfig(final Issuer pIssuer) {
 		LOGGER.trace("> findAppropriateSpConfig()");
 
-		for (ServiceProviderConfig lSpConfig : this.serviceProviderConfig) {
-			if (lSpConfig.isAppropriateSpConfig(pIssuer)) {
+		for (ServiceProvider lSpConfig : this.serviceProviderConfig) {
+			if (lSpConfig.isAppropriateServiceProvider(pIssuer)) {
 				LOGGER.trace("< findAppropriateSpConfig()");
 				return lSpConfig;
 			}
@@ -85,7 +85,7 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 	 * @param pServiceProviderConfig
 	 *            the serviceProviderConfig to set
 	 */
-	public void setServiceProviderConfig(List<ServiceProviderConfig> pServiceProviderConfig) {
+	public void setServiceProviderConfig(List<ServiceProvider> pServiceProviderConfig) {
 		serviceProviderConfig = pServiceProviderConfig;
 	}
 }
