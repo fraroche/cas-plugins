@@ -25,7 +25,7 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 
 	@NotNull
 	@Size(min = 1)
-	private List<ServiceProvider>	serviceProviderConfig;
+	private List<ServiceProvider>	serviceProviderList;
 
 	@Override
 	protected WebApplicationService extractServiceInternal(final HttpServletRequest pRequest) {
@@ -70,7 +70,7 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 	private ServiceProvider findAppropriateSpConfig(final Issuer pIssuer) {
 		LOGGER.trace("> findAppropriateSpConfig()");
 
-		for (ServiceProvider lSpConfig : this.serviceProviderConfig) {
+		for (ServiceProvider lSpConfig : this.serviceProviderList) {
 			if (lSpConfig.isAppropriateServiceProvider(pIssuer)) {
 				LOGGER.trace("< findAppropriateSpConfig()");
 				return lSpConfig;
@@ -82,10 +82,10 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 	}
 
 	/**
-	 * @param pServiceProviderConfig
-	 *            the serviceProviderConfig to set
+	 * @param pServiceProviderList
+	 *            the serviceProviderList to set
 	 */
-	public void setServiceProviderConfig(List<ServiceProvider> pServiceProviderConfig) {
-		serviceProviderConfig = pServiceProviderConfig;
+	public void setServiceProviderList(List<ServiceProvider> pServiceProviderList) {
+		serviceProviderList = pServiceProviderList;
 	}
 }

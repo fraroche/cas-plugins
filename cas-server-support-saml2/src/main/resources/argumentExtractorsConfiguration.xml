@@ -30,7 +30,7 @@
 		
 	<bean id="saml2AccountsArgumentExtractor" class="org.jasig.cas.web.support.Saml2AccountsArgumentExtractor" 
 		p:httpClient-ref="httpClient" 
-		p:serviceProviderConfig-ref="Saml2configList" />
+		p:serviceProviderList-ref="Saml2ServiceProviderList" />
 	
 	<util:list id="argumentExtractors">
 		<ref bean="casArgumentExtractor" />

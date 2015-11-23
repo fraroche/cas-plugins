@@ -18,7 +18,7 @@
 		p:location="${java:comp/env/url/casKeysFolder}/MMpublicKey.x509.der" 
 		p:algorithm="RSA" />
 
-	<bean id="horoquartzSpConfig" class="org.jasig.cas.saml2.support.ServiceProviderConfig"
+	<bean id="horoquartzServiceProvider" class="org.jasig.cas.saml2.support.ServiceProvider"
 		p:alternateUserName="SAMAccountName" 
 		p:privateKey-ref="privateKeyFactoryBean" 
 		p:x509certificate-ref="certificateFactoryBean" 
@@ -36,8 +36,8 @@
 		</property>
 	</bean>
 	
-	<util:list id="Saml2configList">
-		<ref bean="horoquartzSpConfig"/>
+	<util:list id="Saml2ServiceProviderList">
+		<ref bean="horoquartzServiceProvider"/>
 	</util:list>
 
 </beans>
