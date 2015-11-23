@@ -6,7 +6,7 @@ import org.opensaml.saml2.core.AuthnRequest;
 
 public class Saml2AccountsService extends AbstractWebApplicationService {
 
-	private static final long	serialVersionUID	= -3827549250640938326L;
+	private static final long			serialVersionUID	= -3827549250640938326L;
 
 	// ----------------------------------------------------------------------------
 	// Execution Variables
@@ -25,6 +25,7 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 		this.relayState = pRelayState;
 	}
 
+	@Override
 	public Response getResponse(final String ticketId) {
 		return this.getSpConfig().getResponse(getPrincipal(), this.getAuthnRequest(), this.getRelayState());
 	}
@@ -34,6 +35,7 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 	 * 
 	 * @see org.jasig.cas.authentication.principal.WebApplicationService#logOutOfService(java.lang.String)
 	 */
+	@Override
 	public boolean logOutOfService(final String pSessionIdentifier) {
 		return false;
 	}

@@ -30,10 +30,14 @@ import org.opensaml.xml.security.x509.BasicX509Credential;
 import org.opensaml.xml.signature.Signature;
 import org.opensaml.xml.signature.SignatureException;
 import org.opensaml.xml.signature.Signer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ServiceProviderConfig implements Serializable {
 
-	private static final long	serialVersionUID					= -2339718197074244232L;
+	private static final long				serialVersionUID					= -2339718197074244232L;
+
+	private static final Logger				LOGGER								= LoggerFactory.getLogger(ServiceProviderConfig.class);
 
 	/**
 	 * This constant is to be used in Spring configuration XML file when you need to reference a Saml Attribute value.<br>
@@ -123,8 +127,8 @@ public class ServiceProviderConfig implements Serializable {
 	 */
 	/*
 	 * TODO RG_2_0:
-	 * If "nameIdFormat" is null, then check in the the SP metadatas if the "NameIDFormat" is present. If present,
-	 * initialize "nameIdFormat" with it's value
+	 * If "nameIdFormat" is null, then check in the SP metadatas if the "NameIDFormat" is present.
+	 * If present, initialize "nameIdFormat" with it's value
 	 */
 	private String				nameIdFormat;
 
@@ -137,7 +141,7 @@ public class ServiceProviderConfig implements Serializable {
 
 	/**
 	 * If this field is set to true, this means that the authentication request has been transformed by a "deflate"
-	 * compression mecanism.<br>
+	 * compression mechanism.<br>
 	 * Default to "false"
 	 */
 	private boolean				activateDeflate						= false;
@@ -164,15 +168,15 @@ public class ServiceProviderConfig implements Serializable {
 	// private Cipherer responseCipherer;
 
 	@NotNull
-	private X509Certificate		x509certificate;
+	private X509Certificate					x509certificate;
 
 	@NotNull
-	private PrivateKey			privateKey;
+	private PrivateKey						privateKey;
 
 	/**
 	 * add the <Conditions> to the SAML <Assertion>
 	 */
-	private List<URI>			restrictedURIs;
+	private ArrayList<URI>					restrictedURIs;
 
 	/**
 	 * The attributeList maps "AttributeStatement.Attribute Name" of the SAML Response to the "Principal.Attribute"
@@ -283,7 +287,7 @@ public class ServiceProviderConfig implements Serializable {
 	/**
 	 * @param pRestrictedURIs the restrictedURIs to set
 	 */
-	public void setRestrictedURIs(final List<URI> pRestrictedURIs) {
+	public void setRestrictedURIs(final ArrayList<URI> pRestrictedURIs) {
 		this.restrictedURIs = pRestrictedURIs;
 	}
 
@@ -296,22 +300,30 @@ public class ServiceProviderConfig implements Serializable {
 
 	// ----------------------------------------------------------------------------
 
-	public boolean isAppropriateSpConfig(final Issuer pIssuer) {
+	public boolean isAppropriateSpConfig(@NotNull
+	final Issuer pIssuer) {
+		LOGGER.trace("> isAppropriateSpConfig()");
+
 		URL lIssuerUrl = null;
 		boolean lIsAppSpConf = false;
+		String lIssuerURL = pIssuer.getValue();
 		try {
-			lIssuerUrl = new URL(pIssuer.getValue());
+			lIssuerUrl = new URL(lIssuerURL);
 			if (this.spIssuerUrl.indexOf(lIssuerUrl.getHost()) != -1) {
 				lIsAppSpConf = true;
 			}
 		} catch (MalformedURLException e) {
-			e.printStackTrace();
+			LOGGER.error("Error while parsing the '" + lIssuerURL + "' string in URL.", e);
 		}
+
+		LOGGER.trace("< isAppropriateSpConfig()");
 		return lIsAppSpConf;
 	}
 
 
 	public org.jasig.cas.authentication.principal.Response getResponse(final Principal pCasPrincipal, final AuthnRequest pAuthnRequest, final String pRelayState) {
+		LOGGER.trace("> getResponse()");
+
 		final Map<String, String> lParameters = new HashMap<String, String>();
 		final Response lSamlResponse = buildSamlResponse(pCasPrincipal, pAuthnRequest);
 		String lXmlResponse = null;
@@ -327,14 +339,18 @@ public class ServiceProviderConfig implements Serializable {
 			lParameters.put("SAMLResponse", lSignedResponse);
 			lParameters.put("RelayState", pRelayState);
 		} catch (MarshallingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.error("Error while marshalling samlResponse.", e);
 		}
 
-		return org.jasig.cas.authentication.principal.Response.getPostResponse(pAuthnRequest.getAssertionConsumerServiceURL(), lParameters);
+		org.jasig.cas.authentication.principal.Response lResponse = org.jasig.cas.authentication.principal.Response.getPostResponse(pAuthnRequest.getAssertionConsumerServiceURL(), lParameters);
+
+		LOGGER.trace("< getResponse()");
+		return lResponse;
 	}
 
 	private Response buildSamlResponse(final Principal pCasPrincipal, final AuthnRequest pAuthnRequest) {
+		LOGGER.trace("> buildSamlResponse()");
+
 		final String lUserId = getUserId(pCasPrincipal);
 
 		Response lResponse = SAML2ResponseBuilder.buildResponseEnveloppe(null);
@@ -350,10 +366,13 @@ public class ServiceProviderConfig implements Serializable {
 		lResponse.getAssertions().add(lAssertion);
 
 		lResponse.setDestination(this.assertionConsumerServiceUrl);
+
+		LOGGER.trace("< buildSamlResponse()");
 		return lResponse;
 	}
 
 	private Assertion buildSamlAssertion(final Principal pCasPrincipal, final AuthnRequest pAuthnRequest, final String pUserId, final Response pResponse) {
+		LOGGER.trace("> buildSamlAssertion()");
 
 		Assertion lAssertion = SAML2ResponseBuilder.buildAssertion(pResponse);
 		DateTime lDebutValidite = pResponse.getIssueInstant();
@@ -375,9 +394,8 @@ public class ServiceProviderConfig implements Serializable {
 		if (this.assertionConsumerServiceUrl != null) {
 			try {
 				lRecipient = new URI(this.assertionConsumerServiceUrl);
-			} catch (URISyntaxException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
+			} catch (URISyntaxException e) {
+				LOGGER.error("Error while creating URI instance from '" + this.assertionConsumerServiceUrl + "'", e);
 			}
 		}
 		SAML2ResponseBuilder.addSubject(lAssertion, pUserId, lDebutValidite, lFinValidite, lInResponseTo, lRecipient);
@@ -388,32 +406,7 @@ public class ServiceProviderConfig implements Serializable {
 		// add the <AttributeStatement> to the SAML <Assertion>
 		AttributeStatement lAttStat = null;
 		for (List<String> lList : attributeList) {
-			String lSamlAttributeName = null;
-			String lSamlAttributeFormatName = null;
-			String lCasPrincipalAttributeName = null;
-			String lSamlAttributeValue = null;
-			String lErrorString = "Wrong attribute list definition. the list must be formated as follow: <[SamlAttributName[mandatory]], [SamlAttributeNameFormat[optional]], [CasPrincipalAttributeName[mandatory]]>";
-			if (lList.size() > 3) {
-				System.err.println(lErrorString);
-				continue;
-			}
-			if (lList.size() == 3) {
-				lSamlAttributeFormatName = lList.get(1);
-				if (lSamlAttributeFormatName == null || lSamlAttributeFormatName.indexOf("urn:oasis:names:tc:SAML:2.0:attrname-format:") == -1) {
-					System.err.println(lErrorString);
-					continue;
-				}
-				lCasPrincipalAttributeName = lList.get(2);
-			} else {
-				lCasPrincipalAttributeName = lList.get(1);
-			}
-			lSamlAttributeName = lList.get(0);
-			if (USER_ID.equals(lCasPrincipalAttributeName)) {
-				lSamlAttributeValue = getUserId(pCasPrincipal);
-			} else {
-				lSamlAttributeValue = getPrincipalAttribute(pCasPrincipal, lCasPrincipalAttributeName);
-			}
-			lAttStat = SAML2ResponseBuilder.addAttributeToAttributeStatement(lAttStat, lSamlAttributeName, lSamlAttributeFormatName, null, lSamlAttributeValue);
+			lAttStat = addAttributeToAttributeStatement(pCasPrincipal, lAttStat, lList);
 		}
 		SAML2ResponseBuilder.addAttributeStatement(lAssertion, lAttStat);
 
@@ -424,20 +417,62 @@ public class ServiceProviderConfig implements Serializable {
 		try {
 			Configuration.getMarshallerFactory().getMarshaller(lAssertion).marshall(lAssertion);
 		} catch (MarshallingException e) {
-			e.printStackTrace();
+			LOGGER.error("Unable to marshal Object Tree", e);
 		}
 
 		// Computing the Signature Value
 		try {
 			Signer.signObject(lAssertionSignature);
 		} catch (SignatureException e) {
-			e.printStackTrace();
+			LOGGER.error("Unable to compute signature", e);
 		}
 
+		LOGGER.trace("< buildSamlAssertion()");
 		return lAssertion;
 	}
 
+	private AttributeStatement addAttributeToAttributeStatement(final Principal pCasPrincipal, final AttributeStatement pAttStat, final List<String> pList) {
+		LOGGER.trace("> addAttributeToAttributeStatement()");
+
+		AttributeStatement lAttStat = null;
+		String lSamlAttributeName = null;
+		String lSamlAttributeFormatName = null;
+		String lCasPrincipalAttributeName = null;
+		String lSamlAttributeValue = null;
+
+		// check attribute list definition
+		String lErrorString = "Wrong attribute list definition. the list must be formated as follow: <[SamlAttributName[mandatory]], [SamlAttributeNameFormat[optional]], [CasPrincipalAttributeName[mandatory]]>";
+		if (pList.size() > 3) {
+			LOGGER.error(lErrorString);
+			return pAttStat;
+		}
+		if (pList.size() == 3) {
+			lSamlAttributeFormatName = pList.get(1);
+			if (lSamlAttributeFormatName == null || lSamlAttributeFormatName.indexOf("urn:oasis:names:tc:SAML:2.0:attrname-format:") == -1) {
+				LOGGER.error(lErrorString);
+				return pAttStat;
+			}
+			lCasPrincipalAttributeName = pList.get(2);
+		} else {
+			lCasPrincipalAttributeName = pList.get(1);
+		}
+		lSamlAttributeName = pList.get(0);
+		// --
+
+		if (USER_ID.equals(lCasPrincipalAttributeName)) {
+			lSamlAttributeValue = getUserId(pCasPrincipal);
+		} else {
+			lSamlAttributeValue = getPrincipalAttribute(pCasPrincipal, lCasPrincipalAttributeName);
+		}
+		lAttStat = SAML2ResponseBuilder.addAttributeToAttributeStatement(pAttStat, lSamlAttributeName, lSamlAttributeFormatName, null, lSamlAttributeValue);
+
+		LOGGER.trace("< addAttributeToAttributeStatement()");
+		return lAttStat;
+	}
+
 	private String getUserId(final Principal pCasPrincipal) {
+		LOGGER.trace("> getUserId()");
+
 		final String lUserId;
 		if (this.alternateUserName == null) {
 			lUserId = pCasPrincipal.getId();
@@ -449,12 +484,17 @@ public class ServiceProviderConfig implements Serializable {
 				lUserId = lAttributeValue;
 			}
 		}
+
+		LOGGER.trace("< getUserId()");
 		return lUserId;
 	}
 
 	private String getPrincipalAttribute(final Principal pCasPrincipal, final String pPrincipalAttributeName) {
-		String lAttributeValue = null;
-		lAttributeValue = (String) pCasPrincipal.getAttributes().get(pPrincipalAttributeName);
+		LOGGER.trace("> getPrincipalAttribute()");
+
+		String lAttributeValue = (String) pCasPrincipal.getAttributes().get(pPrincipalAttributeName);
+
+		LOGGER.trace("< getPrincipalAttribute()");
 		return lAttributeValue;
 	}
 

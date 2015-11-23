@@ -2,6 +2,7 @@ package org.jasig.cas.saml2.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
@@ -78,6 +79,8 @@ import org.opensaml.xml.signature.Signature;
 import org.opensaml.xml.signature.SignatureConstants;
 import org.opensaml.xml.signature.impl.SignatureBuilder;
 import org.opensaml.xml.util.XMLHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 /**
@@ -93,6 +96,8 @@ import org.w3c.dom.Element;
  */
 public class SAML2ResponseBuilder {
 
+	private static final Logger				LOGGER			= LoggerFactory.getLogger(SAML2ResponseBuilder.class);
+
 	private static XMLObjectBuilderFactory builderFactory = Configuration.getBuilderFactory();
 	
 	static {
@@ -100,14 +105,13 @@ public class SAML2ResponseBuilder {
     	try {
 			OpenSamlBootstrap.bootstrap();
 		} catch (ConfigurationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.error("Error while initializing the OpenSAML library, loading default configurations.", e);
 		}
 	}
 	
 	public static Document marshallObjectToDocument(final XMLObject pInSamlObject) throws MarshallingException, ParserConfigurationException {
 
-		Element lOutDomRoot = null;
+		Element lOutDomRoot;
 		Document lOutDom = null;
 		
 		lOutDomRoot = marshallObject(pInSamlObject);
@@ -116,7 +120,7 @@ public class SAML2ResponseBuilder {
 			lOutDom = Configuration.getParserPool().newDocument();
 			lOutDom.appendChild(lOutDomRoot);
 		} catch (XMLParserException e) {
-			e.printStackTrace();
+			LOGGER.error("Error while creating a new document with a pooled builder. There probably was a problem retrieving a builder", e);
 		}
 		    
 		return lOutDom;
@@ -125,11 +129,11 @@ public class SAML2ResponseBuilder {
 	public static Element marshallObject(final XMLObject pInSamlObject) throws MarshallingException {
 		Element lOutDomRoot = null;
 		
-		// Get apropriate marshaller
+		// Get appropriate marshaler
 		MarshallerFactory lMarshallerFactory = Configuration.getMarshallerFactory();
 		Marshaller lMarshaller = lMarshallerFactory.getMarshaller(pInSamlObject);
 		
-		// Marshall using the saml java object
+		// Marshal using the saml java object
 		lOutDomRoot = lMarshaller.marshall(pInSamlObject);
 		
 		return lOutDomRoot;
@@ -750,9 +754,7 @@ public class SAML2ResponseBuilder {
 		try {
 			lKeyInfo = lKiGen.generate(pCredential);
 		} catch (SecurityException e) {
-			// TODO gestion Loggs
-			System.out.println("SAML2ResponseBuilder.getKeyInfo() : "+e);
-			System.out.println(e);
+			LOGGER.error("Error while generating a new KeyInfo object based on keying material and other information within a credential.", e);
 		}
 		
 //		lKiGenFact = new X509KeyInfoGeneratorFactory();
@@ -798,13 +800,14 @@ public class SAML2ResponseBuilder {
 				lCount = lIis.read(lBuf);
 			}
 			return new String(lBaos.toByteArray());
-		} catch (final Exception e) {
+		} catch (final IOException e) {
+			LOGGER.error("I/O error occurs while reading up to byte.length bytes of data an input stream into an array of bytes", e);
 			return null;
 		} finally {
 			try {
 				lIis.close();
-			} catch (final Exception e) {
-				// nothing to do
+			} catch (final IOException e) {
+				LOGGER.error("I/O error occurs while closing an input stream and releasing any system resources associated with this stream ", e);
 			}
 		}
 	}

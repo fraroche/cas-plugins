@@ -48,6 +48,9 @@ public class SAML2RequestReader {
 		}
 	}
 
+	private SAML2RequestReader() {
+	}
+
 	public static Document parseXML(final String pInXml) throws XMLParserException {
 		// Get parser pool manager
 		BasicParserPool lBasicParserPool = new BasicParserPool();

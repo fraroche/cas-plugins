@@ -23,6 +23,7 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 	@Size(min = 1)
 	private List<ServiceProviderConfig>	serviceProviderConfig;
 
+	@Override
 	protected WebApplicationService extractServiceInternal(final HttpServletRequest pRequest) {
 		// keep a trace of the relay state value to be able, according to WebSSO SAML 2 profile, to post it back in the
 		// response
@@ -34,15 +35,13 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 		String lAssertionConsumerServiceUrl = null;
 		WebApplicationService lService = null;
 
-		if (lXmlRequest != null && lXmlRequest.length() != 0) {
-			if ((lAuthnRequest = SAML2RequestReader.getAuthnRequest(lXmlRequest)) != null) {
-				if ((lIssuer = lAuthnRequest.getIssuer()) != null) {
-					lSpConfig = this.findAppropriateSpConfig(lAuthnRequest, lIssuer);
-					if (lSpConfig != null) {
-						lAssertionConsumerServiceUrl = lAuthnRequest.getAssertionConsumerServiceURL();
-						lService = new Saml2AccountsService(lAssertionConsumerServiceUrl, lRelayState, lSpConfig);
-					}
-				}
+		if (lXmlRequest != null && lXmlRequest.length() != 0 
+				&& (lAuthnRequest = SAML2RequestReader.getAuthnRequest(lXmlRequest)) != null 
+				&& (lIssuer = lAuthnRequest.getIssuer()) != null) {
+			lSpConfig = this.findAppropriateSpConfig(lAuthnRequest, lIssuer);
+			if (lSpConfig != null) {
+				lAssertionConsumerServiceUrl = lAuthnRequest.getAssertionConsumerServiceURL();
+				lService = new Saml2AccountsService(lAssertionConsumerServiceUrl, lRelayState, lSpConfig);
 			}
 		}
 		return lService;
