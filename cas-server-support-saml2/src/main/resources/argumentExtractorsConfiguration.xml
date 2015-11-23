@@ -35,8 +35,8 @@
 	<util:list id="argumentExtractors">
 		<ref bean="casArgumentExtractor" />
 		<ref bean="samlArgumentExtractor" />
-		<ref bean="googleAccountsArgumentExtractor" />
 		<ref bean="saml2AccountsArgumentExtractor" />
+		<ref bean="googleAccountsArgumentExtractor" />
 	</util:list>
 <!-- SI2M end of conf changes -->
 </beans>
