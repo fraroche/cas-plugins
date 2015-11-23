@@ -76,7 +76,7 @@ public class SAML2RequestReader {
 		XMLObject lOpenSamlXMLObject;
 		lInDomRoot = pInDom.getDocumentElement();
 
-		// Get apropriate unmarshaller
+		// Get appropriate unmarshaller
 		UnmarshallerFactory lUnmarshallerFactory = Configuration.getUnmarshallerFactory();
 		Unmarshaller lUnmarshaller = lUnmarshallerFactory.getUnmarshaller(lInDomRoot);
 
