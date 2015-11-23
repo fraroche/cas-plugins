@@ -12,8 +12,12 @@ import org.jasig.cas.saml2.support.ServiceProviderConfig;
 import org.jasig.cas.saml2.util.SAML2RequestReader;
 import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.Issuer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabledArgumentExtractor {
+
+	private static final Logger			LOGGER				= LoggerFactory.getLogger(Saml2AccountsArgumentExtractor.class);
 
 	public static final String			CONST_PARAM_SERVICE	= "SAMLRequest";
 
@@ -23,21 +27,34 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 	@Size(min = 1)
 	private List<ServiceProviderConfig>	serviceProviderConfig;
 
+	@Override
 	protected WebApplicationService extractServiceInternal(final HttpServletRequest pRequest) {
+		LOGGER.trace("> extractServiceInternal()");
+
 		// keep a trace of the relay state value to be able, according to WebSSO SAML 2 profile, to post it back in the
 		// response
 		final String lRelayState = pRequest.getParameter(Saml2AccountsArgumentExtractor.CONST_RELAY_STATE);
-		final String lXmlRequest = SAML2RequestReader.decodeAuthnRequestXML(pRequest.getParameter(Saml2AccountsArgumentExtractor.CONST_PARAM_SERVICE));
+		final String lXmlRequest = SAML2RequestReader.decodeXMLAuthnRequest(pRequest.getParameter(Saml2AccountsArgumentExtractor.CONST_PARAM_SERVICE));
 		AuthnRequest lAuthnRequest = null;
 		Issuer lIssuer = null;
 		ServiceProviderConfig lSpConfig = null;
 		String lAssertionConsumerServiceUrl = null;
 		WebApplicationService lService = null;
-
+		
+//		if (lXmlRequest != null && lXmlRequest.length() != 0 
+//				&& (lAuthnRequest = SAML2RequestReader.getAuthnRequest(lXmlRequest)) != null 
+//				&& (lIssuer = lAuthnRequest.getIssuer()) != null
+//				&& (lSpConfig = this.findAppropriateSpConfig(lIssuer)) != null) {
+//			lAssertionConsumerServiceUrl = lAuthnRequest.getAssertionConsumerServiceURL();
+//			lService = new Saml2AccountsService(lAssertionConsumerServiceUrl, lRelayState, lSpConfig);
+//		}
+		
 		if (lXmlRequest != null && lXmlRequest.length() != 0) {
-			if ((lAuthnRequest = SAML2RequestReader.getAuthnRequest(lXmlRequest)) != null) {
-				if ((lIssuer = lAuthnRequest.getIssuer()) != null) {
-					lSpConfig = this.findAppropriateSpConfig(lAuthnRequest, lIssuer);
+			lAuthnRequest = SAML2RequestReader.getAuthnRequest(lXmlRequest);
+			if (lAuthnRequest != null) {
+				lIssuer = lAuthnRequest.getIssuer();
+				if (lIssuer != null) {
+					lSpConfig = this.findAppropriateSpConfig(lIssuer);
 					if (lSpConfig != null) {
 						lAssertionConsumerServiceUrl = lAuthnRequest.getAssertionConsumerServiceURL();
 						lService = new Saml2AccountsService(lAssertionConsumerServiceUrl, lRelayState, lSpConfig);
@@ -45,15 +62,22 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 				}
 			}
 		}
+
+		LOGGER.trace("< extractServiceInternal()");
 		return lService;
 	}
 
-	private ServiceProviderConfig findAppropriateSpConfig(final AuthnRequest pAuthnRequest, final Issuer pIssuer) {
+	private ServiceProviderConfig findAppropriateSpConfig(final Issuer pIssuer) {
+		LOGGER.trace("> findAppropriateSpConfig()");
+
 		for (ServiceProviderConfig lSpConfig : this.serviceProviderConfig) {
 			if (lSpConfig.isAppropriateSpConfig(pIssuer)) {
+				LOGGER.trace("< findAppropriateSpConfig()");
 				return lSpConfig;
 			}
 		}
+
+		LOGGER.trace("< findAppropriateSpConfig()");
 		return null;
 	}
 

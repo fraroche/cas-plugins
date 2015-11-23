@@ -85,13 +85,7 @@
 			key="org.jasig.cas.authentication.principal.GoogleAccountsService"
 			value-ref="serviceTicketUniqueIdGenerator" />
 		<entry
-			key="fr.si2m.socle.security.auth.cas.authentication.principal.AdpAccountsService"
-			value-ref="serviceTicketUniqueIdGenerator" />
-		<entry
-			key="fr.si2m.socle.security.auth.cas.authentication.principal.Saml2AccountsService"
-			value-ref="serviceTicketUniqueIdGenerator" />
-		<entry
-			key="fr.si2m.socle.security.auth.cas.authentication.principal.TalentSoftAccountsService"
+			key="org.jasig.cas.authentication.principal.Saml2AccountsService"
 			value-ref="serviceTicketUniqueIdGenerator" />
 	</util:map>
 
