@@ -10,7 +10,7 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 
 	// ----------------------------------------------------------------------------
 	// Execution Variables
-	private final ServiceProvider	spConfig;
+	private final ServiceProvider	serviceProvider;
 
 	private final String				relayState;
 
@@ -19,15 +19,15 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 	private transient AuthnRequest		authnRequest		= null;
 	// ----------------------------------------------------------------------------
 
-	public Saml2AccountsService(final String pAssertionConsumerServiceUrl, final String pRelayState, final ServiceProvider pSpConfig) {
+	public Saml2AccountsService(final String pAssertionConsumerServiceUrl, final String pRelayState, final ServiceProvider pServiceProvider) {
 		super(pAssertionConsumerServiceUrl, pAssertionConsumerServiceUrl, null, null);
-		this.spConfig = pSpConfig;
+		this.serviceProvider = pServiceProvider;
 		this.relayState = pRelayState;
 	}
 
 	@Override
 	public Response getResponse(final String ticketId) {
-		return this.getSpConfig().getResponse(getPrincipal(), this.getAuthnRequest(), this.getRelayState());
+		return this.getServiceProvider().getResponse(getPrincipal(), this.getAuthnRequest(), this.getRelayState());
 	}
 
 	/**
@@ -41,10 +41,10 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 	}
 
 	/**
-	 * @return the spConfig
+	 * @return the serviceProvider
 	 */
-	public ServiceProvider getSpConfig() {
-		return spConfig;
+	public ServiceProvider getServiceProvider() {
+		return serviceProvider;
 	}
 
 	/**

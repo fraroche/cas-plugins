@@ -50,7 +50,7 @@ public class ServiceProvider implements Serializable {
 	 * 		<util:list>
 	 * 			<value>urn:oid:1.2.840.113556.1.4.221</value>
 	 * 			<value>urn:oasis:names:tc:SAML:2.0:attrname-format:uri</value>
-	 * 			<util:constant static-field="org.jasig.cas.saml2.support.ServiceProviderConfig.USER_ID"/>
+	 * 			<util:constant static-field="org.jasig.cas.saml2.support.ServiceProvider.USER_ID"/>
 	 * 		</util:list>
 	 * 	</util:list>
 	 * </property>
@@ -133,9 +133,8 @@ public class ServiceProvider implements Serializable {
 	private String				nameIdFormat;
 
 	/**
-	 * Allow to replace the SAML response Subject/NameID obtained from the
-	 * 
-	 * @see Principal.getId() by the value of any attribute present in this Principal.
+	 * Allow to replace the SAML response Subject/NameID obtained from the "Principal.getId()" by the value of any
+	 * attribute present in this Principal.
 	 */
 	private String				alternateUserName;
 
