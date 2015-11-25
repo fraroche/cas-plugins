@@ -1,10 +1,14 @@
 package org.jasig.cas.saml2.util;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 
 import org.apache.commons.codec.binary.Base64;
 import org.opensaml.Configuration;
@@ -167,7 +171,7 @@ public class SAML2RequestReader {
 
 		String lUncompressedString = null;
 		final Inflater lInflater = new Inflater(true);
-		final byte[] lXmlMessageBytes = new byte[10000];
+		byte[] lXmlMessageBytes = new byte[10000];
 
 		final byte[] lExtendedBytes = new byte[pBytes.length + 1];
 		System.arraycopy(pBytes, 0, lExtendedBytes, 0, pBytes.length);
@@ -187,10 +191,35 @@ public class SAML2RequestReader {
 			lInflater.end();
 			lUncompressedString = new String(lXmlMessageBytes, 0, resultLength, "UTF-8");
 		} catch (final DataFormatException e) {
-			LOGGER.error("Error while uncompressing byte array into specified buffer. Occurs if the compressed data format is invalid", e);
+			LOGGER.warn("Problem encountered while uncompressing byte array into specified buffer. Occurs if the compressed data format is invalid", e);
 		} catch (final UnsupportedEncodingException e) {
 			LOGGER.error("Cannot find encoding: UTF-8", e);
 			throw new RuntimeException("Cannot find encoding: UTF-8", e);
+		}
+
+		if (lUncompressedString == null) {
+
+			final ByteArrayInputStream lBais = new ByteArrayInputStream(pBytes);
+			final ByteArrayOutputStream lBaos = new ByteArrayOutputStream();
+			final InflaterInputStream lIis = new InflaterInputStream(lBais);
+			lXmlMessageBytes = new byte[1024];
+
+			try {
+				int count = lIis.read(lXmlMessageBytes);
+				while (count != -1) {
+					lBaos.write(lXmlMessageBytes, 0, count);
+					count = lIis.read(lXmlMessageBytes);
+				}
+				lUncompressedString = new String(lBaos.toByteArray());
+			} catch (final IOException e) {
+				LOGGER.error("Unable to read bytes of data from this input stream into an array of bytes", e);
+			} finally {
+				try {
+					lIis.close();
+				} catch (final IOException e) {
+					// nothing to do
+				}
+			}
 		}
 
 		LOGGER.trace("< inflate()");
