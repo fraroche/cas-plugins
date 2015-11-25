@@ -63,8 +63,12 @@
 			value-ref="samlServiceTicketUniqueIdGenerator" />
 		<entry key="org.jasig.cas.authentication.principal.GoogleAccountsService"
 			value-ref="serviceTicketUniqueIdGenerator" />
+			
+<!-- Add the following lines to your own "uniqueIdGenerators.xml" conf file to activate saml2 support -->
 		<entry key="org.jasig.cas.authentication.principal.Saml2AccountsService"
 			value-ref="serviceTicketUniqueIdGenerator" />
+<!-- end of conf changes -->			
+			
 	</util:map>
 
 </beans>

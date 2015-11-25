@@ -12,7 +12,12 @@
 		OpenId, etc.).  By default CAS and SAML are enabled.
 	</description>
 	
+<!-- Add the following lines to your own "argumentExtractorsConfiguration.xml" conf file to activate saml2 support -->	
 	<import resource="${java:comp/env/url/casConfiguration}/saml2Configuration.xml"/>
+	<bean id="saml2AccountsArgumentExtractor" class="org.jasig.cas.web.support.Saml2AccountsArgumentExtractor" 
+		p:httpClient-ref="httpClient" 
+		p:serviceProviderList-ref="Saml2ServiceProviderList" />
+<!-- end of conf changes -->
 	
 	<bean id="casArgumentExtractor" class="org.jasig.cas.web.support.CasArgumentExtractor"
 		p:httpClient-ref="noRedirectHttpClient" 
@@ -27,16 +32,13 @@
 		p:privateKey-ref="privateKeyFactoryBean"
 		p:publicKey-ref="publicKeyFactoryBean" 
 		p:httpClient-ref="httpClient" />
-		
-	<bean id="saml2AccountsArgumentExtractor" class="org.jasig.cas.web.support.Saml2AccountsArgumentExtractor" 
-		p:httpClient-ref="httpClient" 
-		p:serviceProviderList-ref="Saml2ServiceProviderList" />
 	
 	<util:list id="argumentExtractors">
 		<ref bean="casArgumentExtractor" />
 		<ref bean="samlArgumentExtractor" />
+<!-- Add the following lines to your own "argumentExtractorsConfiguration.xml" conf file to activate saml2 support -->	
 		<ref bean="saml2AccountsArgumentExtractor" />
+<!-- end of conf changes -->
 		<ref bean="googleAccountsArgumentExtractor" />
 	</util:list>
-<!-- SI2M end of conf changes -->
 </beans>
