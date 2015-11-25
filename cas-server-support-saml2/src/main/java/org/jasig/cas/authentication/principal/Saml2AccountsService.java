@@ -12,11 +12,11 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 	// Execution Variables
 	private final ServiceProvider	serviceProvider;
 
-	private final String				relayState;
+	private final String			relayState;
 
-	private String						xmlSamlRequest;
+	private String					xmlSamlRequest;
 
-	private transient AuthnRequest		authnRequest		= null;
+	private transient AuthnRequest	authnRequest		= null;
 	// ----------------------------------------------------------------------------
 
 	public Saml2AccountsService(final String pAssertionConsumerServiceUrl, final String pRelayState, final ServiceProvider pServiceProvider) {

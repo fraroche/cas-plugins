@@ -12,7 +12,7 @@
 		OpenId, etc.).  By default CAS and SAML are enabled.
 	</description>
 	
-	<import resource="${java:comp/env/url/casConfiguration}/Saml2Configurer.xml"/>
+	<import resource="${java:comp/env/url/casConfiguration}/saml2Configuration.xml"/>
 	
 	<bean id="casArgumentExtractor" class="org.jasig.cas.web.support.CasArgumentExtractor"
 		p:httpClient-ref="noRedirectHttpClient" 
