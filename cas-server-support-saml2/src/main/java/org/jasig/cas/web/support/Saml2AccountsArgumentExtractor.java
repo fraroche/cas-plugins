@@ -23,6 +23,12 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 
 	public static final String			CONST_RELAY_STATE	= "RelayState";
 
+	public static Saml2AccountsArgumentExtractor	instance			= null;
+
+	public Saml2AccountsArgumentExtractor() {
+		instance = this;
+	}
+
 	@NotNull
 	@Size(min = 1)
 	private List<ServiceProvider>	serviceProviderList;
@@ -54,10 +60,11 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 			if (lAuthnRequest != null) {
 				lIssuer = lAuthnRequest.getIssuer();
 				if (lIssuer != null) {
-					lServiceProvider = this.findAppropriateServiceProvider(lIssuer);
+					String lIssuerURL = lIssuer.getValue();
+					lServiceProvider = this.findAppropriateServiceProvider(lIssuerURL);
 					if (lServiceProvider != null) {
 						lAssertionConsumerServiceUrl = lAuthnRequest.getAssertionConsumerServiceURL();
-						lService = new Saml2AccountsService(lAssertionConsumerServiceUrl, lRelayState, lServiceProvider);
+						lService = new Saml2AccountsService(lAssertionConsumerServiceUrl, lRelayState, lXmlRequest, lServiceProvider);
 					}
 				}
 			}
@@ -67,11 +74,11 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 		return lService;
 	}
 
-	private ServiceProvider findAppropriateServiceProvider(final Issuer pIssuer) {
+	public ServiceProvider findAppropriateServiceProvider(final String lIssuerURL) {
 		LOGGER.trace("> findAppropriateServiceProvider()");
 
 		for (ServiceProvider lSpConfig : this.serviceProviderList) {
-			if (lSpConfig.isAppropriateServiceProvider(pIssuer)) {
+			if (lSpConfig.isAppropriateServiceProvider(lIssuerURL)) {
 				LOGGER.trace("< findAppropriateServiceProvider()");
 				return lSpConfig;
 			}

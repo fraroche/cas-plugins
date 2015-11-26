@@ -1,5 +1,10 @@
 package org.jasig.cas.authentication.principal;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+
+import javax.validation.constraints.NotNull;
+
 import org.jasig.cas.saml2.support.ServiceProvider;
 import org.jasig.cas.saml2.util.SAML2RequestReader;
 import org.opensaml.saml2.core.AuthnRequest;
@@ -14,20 +19,24 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 
 	private final String			relayState;
 
-	private String					xmlSamlRequest;
+	@NotNull
+	private final String			xmlSamlRequest;
 
-	private transient AuthnRequest	authnRequest		= null;
+	@NotNull
+	private transient AuthnRequest	authnRequest;
 	// ----------------------------------------------------------------------------
 
-	public Saml2AccountsService(final String pAssertionConsumerServiceUrl, final String pRelayState, final ServiceProvider pServiceProvider) {
+	public Saml2AccountsService(final String pAssertionConsumerServiceUrl, final String pRelayState, final String pXmlSamlRequest, final ServiceProvider pServiceProvider) {
 		super(pAssertionConsumerServiceUrl, pAssertionConsumerServiceUrl, null, null);
 		this.serviceProvider = pServiceProvider;
 		this.relayState = pRelayState;
+		this.xmlSamlRequest = pXmlSamlRequest;
+		this.authnRequest = SAML2RequestReader.getAuthnRequest(pXmlSamlRequest);
 	}
 
 	@Override
 	public Response getResponse(final String ticketId) {
-		return this.getServiceProvider().getResponse(getPrincipal(), this.getAuthnRequest(), this.getRelayState());
+		return this.getServiceProvider().getResponse(getPrincipal(), this.authnRequest, this.relayState);
 	}
 
 	/**
@@ -54,13 +63,8 @@ public class Saml2AccountsService extends AbstractWebApplicationService {
 		return relayState;
 	}
 
-	/**
-	 * @return the authnRequest
-	 */
-	public AuthnRequest getAuthnRequest() {
-		if (this.authnRequest == null) {
-			this.authnRequest = SAML2RequestReader.getAuthnRequest(this.xmlSamlRequest);
-		}
-		return this.authnRequest;
+	private void readObject(final ObjectInputStream pObjInputStream) throws IOException, ClassNotFoundException {
+		pObjInputStream.defaultReadObject();
+		this.authnRequest = SAML2RequestReader.getAuthnRequest(this.xmlSamlRequest);
 	}
 }
