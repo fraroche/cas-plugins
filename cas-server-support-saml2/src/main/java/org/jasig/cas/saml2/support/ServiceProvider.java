@@ -76,8 +76,9 @@ public class ServiceProvider implements Serializable {
 
 	/**
 	 * XML value of the SP MetaData.
-	 * 
-	 * TODO RG_2_0
+	 */
+	/*
+	 * TODO RG_3_0
 	 * If the spMetaDataProviderUrl is not null,
 	 * then try to fetch the meta data XML and initialize 'spMetaDataXML'.
 	 * After that, set spMetaDataProviderUrl to null to be sure that fetching the SP meta data
@@ -86,7 +87,16 @@ public class ServiceProvider implements Serializable {
 	private String						spMetaDataXML;
 
 	/**
-	 * 
+	 * Parsed and unmarshalled form of the Service Provider XML meta data.
+	 * Even though ServiceProvider is never really serialized because of the writeReplace mechanism,
+	 * SPSSODescriptor must be transient to allow compilation since this class 
+	 */
+	/*
+	 * TODO RG_4_0
+	 * For performance considerations, parsing and unmarshalling should occur only one time per VM session.
+	 * Once the spMetaData is set, to null if the unmarshaling failed, or to the umarshalled value, set the
+	 * spMetaDataXML to null
+	 * so that unmarshalling process occurs one time only.
 	 */
 	private transient SPSSODescriptor	spMetaData;
 
@@ -100,6 +110,7 @@ public class ServiceProvider implements Serializable {
 	/**
 	 * Issuer of the authentication request. <br>
 	 * It corresponds to the "EntityDescriptor/entityID" of the SP metadatas.
+	 * 
 	 */
 	@NotNull
 	private String				spIssuerUrl;
