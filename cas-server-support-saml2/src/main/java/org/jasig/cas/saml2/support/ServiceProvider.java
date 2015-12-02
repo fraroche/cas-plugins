@@ -2,6 +2,7 @@ package org.jasig.cas.saml2.support;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -15,7 +16,6 @@ import java.util.Map;
 
 import javax.validation.constraints.NotNull;
 
-import org.apache.commons.codec.binary.Base64;
 import org.jasig.cas.authentication.principal.Principal;
 import org.jasig.cas.saml2.util.SAML2ResponseBuilder;
 import org.jasig.cas.web.support.Saml2AccountsArgumentExtractor;
@@ -25,21 +25,37 @@ import org.opensaml.saml2.core.AttributeStatement;
 import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.Response;
 import org.opensaml.saml2.core.StatusCode;
-import org.opensaml.saml2.metadata.SPSSODescriptor;
+import org.opensaml.ws.message.encoder.MessageEncodingException;
 import org.opensaml.xml.Configuration;
 import org.opensaml.xml.io.MarshallingException;
 import org.opensaml.xml.security.x509.BasicX509Credential;
 import org.opensaml.xml.signature.Signature;
 import org.opensaml.xml.signature.SignatureException;
 import org.opensaml.xml.signature.Signer;
+import org.opensaml.xml.util.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ServiceProvider implements Serializable {
-
 	private static final long				serialVersionUID					= -2339718197074244232L;
 
 	private static final Logger				LOGGER								= LoggerFactory.getLogger(ServiceProvider.class);
+	// static {
+	// try {
+	// // Initialize the library
+	// OpenSamlBootstrap.bootstrap();
+	// } catch (ConfigurationException e) {
+	// LOGGER.error("Error in initializing the OpenSAML library, loading default configurations.", e);
+	// }
+	// }
+	//
+	// public ServiceProvider(final String pSpMetaDataProviderUrl) {
+	// this.spMetaDataProviderUrl = pSpMetaDataProviderUrl;
+	// this.spMetaDataXML = this.fetchSpMetaDataXML();
+	// this.spMetaData = this.parseAndUnmarshall();
+	// // TODO check Signature MetaData
+	// this.exploitSpMetaData();
+	// }
 
 	/**
 	 * This constant is to be used in Spring configuration XML file when you need to reference a Saml Attribute value.<br>
@@ -69,37 +85,165 @@ public class ServiceProvider implements Serializable {
 	// ----------------------------------------------------------------------------
 	// Configuration Variables
 
-	/**
-	 * Url of the SP MetaDatas Provider.
-	 */
-	private String						spMetaDataProviderUrl;
-
-	/**
-	 * XML value of the SP MetaData.
-	 */
-	/*
-	 * TODO RG_3_0
-	 * If the spMetaDataProviderUrl is not null,
-	 * then try to fetch the meta data XML and initialize 'spMetaDataXML'.
-	 * After that, set spMetaDataProviderUrl to null to be sure that fetching the SP meta data
-	 * can only occur once per VM lifecycle.
-	 */
-	private String						spMetaDataXML;
-
-	/**
-	 * Parsed and unmarshalled form of the Service Provider XML meta data.
-	 * Even though ServiceProvider is never really serialized because of the writeReplace mechanism,
-	 * SPSSODescriptor must be transient to allow compilation since this class 
-	 */
-	/*
-	 * TODO RG_4_0
-	 * For performance considerations, parsing and unmarshalling should occur only one time per VM session.
-	 * Once the spMetaData is set, to null if the unmarshaling failed, or to the umarshalled value, set the
-	 * spMetaDataXML to null
-	 * so that unmarshalling process occurs one time only.
-	 */
-	private transient SPSSODescriptor	spMetaData;
-
+	// /**
+	// * Url of the SP MetaDatas Provider.
+	// */
+	// private String spMetaDataProviderUrl;
+	//
+	// /**
+	// * XML value of the SP MetaData.
+	// */
+	// /*
+	// * RG_3_0
+	// * If the spMetaDataProviderUrl is not null,
+	// * then try to fetch the meta data XML and initialize 'spMetaDataXML'.
+	// * After that, set spMetaDataProviderUrl to null to be sure that fetching the SP meta data
+	// * can only occur once per VM lifecycle.
+	// */
+	// private String spMetaDataXML = null;
+	//
+	// private String fetchSpMetaDataXML() {
+	// LOGGER.trace("> fetchSpMetaDataXML(");
+	//
+	// // RG 3_0
+	// String lSpMetaDataXML = null;
+	// if (this.spMetaDataProviderUrl != null) {
+	// try {
+	// lSpMetaDataXML =
+	// Request.Get(this.spMetaDataProviderUrl).connectTimeout(1000).socketTimeout(1000).execute().returnContent().asString();
+	// } catch (ClientProtocolException e) {
+	// LOGGER.error("Error while trying to fetch Service Provider Meta Data from url '" + this.spMetaDataProviderUrl +
+	// "'", e);
+	// } catch (IOException e) {
+	// LOGGER.error("Error while trying to fetch Service Provider Meta Data from url '" + this.spMetaDataProviderUrl +
+	// "'", e);
+	// }
+	// }
+	// this.spMetaDataProviderUrl = null;
+	//
+	// LOGGER.trace("< fetchSpMetaDataXML(");
+	// return lSpMetaDataXML;
+	// }
+	//
+	// /**
+	// * Parsed and unmarshalled form of the Service Provider XML meta data.
+	// * Even though ServiceProvider is never really serialized because of the writeReplace mechanism,
+	// * SPSSODescriptor must be transient to allow compilation since this class
+	// */
+	// /*
+	// * RG_4_0
+	// * For performance considerations, parsing and unmarshalling should occur only one time per VM session.
+	// * Once the spMetaData is set, to null if the unmarshaling failed, or to the umarshalled value, set the
+	// * spMetaDataXML to null
+	// * so that unmarshalling process occurs one time only.
+	// */
+	// private transient SPSSODescriptor spMetaData;
+	//
+	// private SPSSODescriptor parseAndUnmarshall() {
+	// // RG_4_0
+	// LOGGER.trace("> parseAndUnmarshall()");
+	//
+	// SPSSODescriptor lSpSsoDescriptor = null;
+	//
+	// if (this.spMetaDataXML != null && !this.spMetaDataXML.isEmpty()) {
+	// try {
+	// Document spMetaDataDom = SAML2RequestReader.parseXML(this.spMetaDataXML);
+	// EntityDescriptor lEntityDescriptor = (EntityDescriptor) SAML2RequestReader.unmarshallDOM(spMetaDataDom);
+	// // lEntityDescriptor.getSPSSODescriptor(supportedProtocol)
+	// } catch (XMLParserException e) {
+	// LOGGER.error("Error while parsing following XML '" + this.spMetaDataXML + "'", e);
+	// } catch (UnmarshallingException e) {
+	// LOGGER.error("Error while umarshalling following XML '" + this.spMetaDataXML + "'", e);
+	// }
+	// }
+	// this.spMetaDataXML = null;
+	//
+	// LOGGER.trace("< parseAndUnmarshall()");
+	// return lSpSsoDescriptor;
+	// }
+	//
+	// protected SignatureTrustEngine getTrustEngine(MetadataProvider provider) {
+	// Set<String> trustedKeys = null;
+	// boolean verifyTrust = true;
+	// boolean forceRevocationCheck = false;
+	// if (provider instanceof ExtendedMetadataDelegate) {
+	// ExtendedMetadataDelegate metadata = (ExtendedMetadataDelegate) provider;
+	// trustedKeys = metadata.getMetadataTrustedKeys();
+	// verifyTrust = metadata.isMetadataTrustCheck();
+	// forceRevocationCheck = metadata.isForceMetadataRevocationCheck();
+	// }
+	// if (verifyTrust) {
+	// LOGGER.debug("Setting trust verification for metadata provider {}", provider);
+	// CertPathPKIXValidationOptions pkixOptions = new CertPathPKIXValidationOptions();
+	// if (forceRevocationCheck) {
+	// LOGGER.debug("Revocation checking forced to true");
+	// pkixOptions.setForceRevocationEnabled(true);
+	// } else {
+	// LOGGER.debug("Revocation checking not forced");
+	// pkixOptions.setForceRevocationEnabled(false);
+	// }
+	// return new PKIXSignatureTrustEngine(getPKIXResolver(provider, trustedKeys, null),
+	// Configuration.getGlobalSecurityConfiguration().getDefaultKeyInfoCredentialResolver(),
+	// new CertPathPKIXTrustEvaluator(pkixOptions), new BasicX509CredentialNameEvaluator());
+	// } else {
+	// LOGGER.debug("Trust verification skipped for metadata provider {}", provider);
+	// return new
+	// AllowAllSignatureTrustEngine(Configuration.getGlobalSecurityConfiguration().getDefaultKeyInfoCredentialResolver());
+	// }
+	// }
+	//
+	// private SPSSODescriptor fetchSpMetaData() {
+	// LOGGER.trace("> fetchSpMetaData()");
+	//
+	// SPSSODescriptor lSpSsoDescriptor = null;
+	// try {
+	// HTTPMetadataProvider lHttpMetadataProvider = new HTTPMetadataProvider(new Timer(true), new HttpClient(),
+	// this.spIssuerUrl);
+	// lHttpMetadataProvider.setRefreshDelayFactor(1);
+	// lHttpMetadataProvider.setParserPool(Configuration.getParserPool());
+	// lHttpMetadataProvider.setMetadataFilter(new SignatureValidationFilter(new SignatureTrustEngine() {
+	//
+	// @Override
+	// public boolean validate(Signature pToken, CriteriaSet pTrustBasisCriteria) throws SecurityException {
+	// // TODO Auto-generated method stub
+	// return false;
+	// }
+	//
+	// @Override
+	// public boolean validate(byte[] pSignature, byte[] pContent, String pAlgorithmURI, CriteriaSet
+	// pTrustBasisCriteria, Credential pCandidateCredential) throws SecurityException {
+	// // TODO Auto-generated method stub
+	// return false;
+	// }
+	//
+	// @Override
+	// public KeyInfoCredentialResolver getKeyInfoResolver() {
+	// // TODO Auto-generated method stub
+	// return null;
+	// }
+	// }));
+	// lHttpMetadataProvider.initialize();
+	//
+	// lHttpMetadataProvider.getMetadata();
+	// } catch (MetadataProviderException e) {
+	// }
+	//
+	//
+	// LOGGER.trace("< fetchSpMetaData()");
+	// return lSpSsoDescriptor;
+	// }
+	//
+	// private void exploitSpMetaData() {
+	// String lBindingType = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST";
+	// if (this.spMetaData != null) {
+	// for (AssertionConsumerService lAcs : this.spMetaData.getAssertionConsumerServices()) {
+	// if (lBindingType.equals(lAcs.getBinding())) {
+	// this.assertionConsumerServiceUrl = lAcs.getLocation();
+	// break;
+	// }
+	// }
+	// }
+	// }
 	/**
 	 * Issuer of the authentication request. <br>
 	 * It corresponds to the "EntityDescriptor/entityID" of the IdP metadatas.
@@ -130,13 +274,13 @@ public class ServiceProvider implements Serializable {
 	 * <ul>
 	 * <li>If the "assertionConsumerServiceUrlRequired" is set to "true", then the "assertionConsumerServiceUrl" is set
 	 * from the corresponding value in the authentication request.<br>
-	 * Not that if this field is not present in the request, an error must be produced</li>
+	 * Note that if this field is not present in the request, an error must be produced</li>
 	 * <li>If the "assertionConsumerServiceUrlRequired" is set to "false", then it could be either set in XML by
-	 * configuration or find, if present, in the SP metadatas (cf. AssertionConsumerService/Location)</li>
+	 * configuration or found, if present, in the SP metadatas (cf. AssertionConsumerService/Location)</li>
 	 * </ul>
 	 */
 	/*
-	 * TODO RG_1_0 :
+	 * RG_1_0 :
 	 * If the "assertionConsumerServiceUrlRequired" is set to "true", then the "assertionConsumerServiceUrl"
 	 * is set from the corresponding value in the authentication request.
 	 */
@@ -144,6 +288,7 @@ public class ServiceProvider implements Serializable {
 		// RG_1_0
 		LOGGER.trace("> getAssertionConsumerServiceUrlToUse");
 
+		// RG_1_2
 		String lAssertionConsumerServiceUrl = this.assertionConsumerServiceUrl;
 		if (this.assertionConsumerServiceUrlRequired) {
 			lAssertionConsumerServiceUrl = pSamlRequest.getAssertionConsumerServiceURL();
@@ -153,11 +298,12 @@ public class ServiceProvider implements Serializable {
 	}
 
 	/*
-	 * TODO RG_1_1 :
+	 * RG_1_1 :
 	 * If this field is not present in the request, an error must be produced
 	 */
 	/**
-	 * Validate that the assertionConsumerServiceUrl is present if this value is mandatory
+	 * Validate that the assertionConsumerServiceUrl is present if this value is mandatory (i. e.
+	 * assertionConsumerServiceUrlRequired = true)
 	 * 
 	 * @param pSamlRequest
 	 * @return true if assertionConsumerServiceUrl is not mandatory or if the assertionConsumerServiceUrl is present in
@@ -175,10 +321,11 @@ public class ServiceProvider implements Serializable {
 		LOGGER.trace("< raiseErrorOnAssertionConsumerServiceUrlControl");
 		return lRaiseError;
 	}
+	
 	/*
-	 * TODO RG_1_2 :
-	 * If the "assertionConsumerServiceUrlRequired" is set to "false", then it could be either set in XML by
-	 * configuration or find, if present, in the SP metadatas
+	 * RG_1_2 :
+	 * If the "assertionConsumerServiceUrlRequired" is set to "false", use this variable,
+	 * if set to "true", use the assertionConsumerServieUrl value from the SAML 2 authnRequest
 	 */
 	private String				assertionConsumerServiceUrl;
 
@@ -186,7 +333,7 @@ public class ServiceProvider implements Serializable {
 	 * Format of the "Response/Assertion/Subject/NameID" of the SAML response.<br>
 	 * Ex: saml:NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"<br>
 	 * The "NameIDFormat" of the SP metadata. If not present in the SP metadata, the responsability of setting this
-	 * value remains to the IdP: this value can be field by XML configuration.
+	 * value remains to the IdP: this value can be filled by XML configuration.
 	 */
 	/*
 	 * TODO RG_2_0:
@@ -242,7 +389,7 @@ public class ServiceProvider implements Serializable {
 
 	/**
 	 * The attributeList maps "AttributeStatement.Attribute Name" of the SAML Response to the "Principal.Attribute"
-	 * The list must be formated as follow: (<[SamlAttributName[mandatory]], [SamlAttributeNameFormat[optional]],
+	 * The list must be formatted as follows : (<[SamlAttributName[mandatory]], [SamlAttributeNameFormat[optional]],
 	 * [CasPrincipalAttributeName[mandatory]]>)*
 	 * ex:
 	 * 
@@ -269,14 +416,13 @@ public class ServiceProvider implements Serializable {
 	public boolean isAppropriateServiceProvider(@NotNull
 	final String pIssuerUrl) {
 		LOGGER.trace("> isAppropriateServiceProvider()");
-	
-		URL lIssuerUrl = null;
+
 		boolean lMatchingServiceProvider = false;
 		if (pIssuerUrl.equals(this.spIssuerUrl)) {
 			lMatchingServiceProvider = true;
 		} else {
 			try {
-				lIssuerUrl = new URL(pIssuerUrl);
+				URL lIssuerUrl = new URL(pIssuerUrl);
 				if (this.spIssuerUrl.indexOf(lIssuerUrl.getHost()) != -1) {
 					lMatchingServiceProvider = true;
 				}
@@ -294,23 +440,30 @@ public class ServiceProvider implements Serializable {
 
 		final Map<String, String> lParameters = new HashMap<String, String>();
 		final Response lSamlResponse = buildSamlResponse(pCasPrincipal, pAuthnRequest);
-		String lXmlResponse = null;
 
-		String lSignedResponse = null;
+		// TODO sign the response if necessary
+
+		String lXmlResponse = null;
 		try {
+
 			lXmlResponse = SAML2ResponseBuilder.marshallAndSerialize(lSamlResponse);
-			if (this.samlResponseBase64encoded) {
-				lXmlResponse = Base64.encodeBase64String(lXmlResponse.getBytes());
+
+			if (this.activateDeflate) {
+				byte[] lOutDeflated = SAML2ResponseBuilder.deflate(lXmlResponse);
+				lXmlResponse = Base64.encodeBytes(lOutDeflated, Base64.DONT_BREAK_LINES);
+			} else if (this.samlResponseBase64encoded) {
+				lXmlResponse = Base64.encodeBytes(lXmlResponse.getBytes("UTF-8"), Base64.DONT_BREAK_LINES);
 			}
 
-			lSignedResponse = lXmlResponse;
-			lParameters.put("SAMLResponse", lSignedResponse);
+			lParameters.put("SAMLResponse", lXmlResponse);
 			lParameters.put("RelayState", pRelayState);
-		} catch (MarshallingException e) {
+		} catch (MessageEncodingException e) {
 			LOGGER.error("Error while marshalling samlResponse.", e);
+		} catch (UnsupportedEncodingException e) {
+			LOGGER.error("'UTF-8' encoding is not supported", e);
 		}
 
-		org.jasig.cas.authentication.principal.Response lResponse = org.jasig.cas.authentication.principal.Response.getPostResponse(pAuthnRequest.getAssertionConsumerServiceURL(), lParameters);
+		org.jasig.cas.authentication.principal.Response lResponse = org.jasig.cas.authentication.principal.Response.getPostResponse(getAssertionConsumerServiceUrlToUse(pAuthnRequest), lParameters);
 
 		LOGGER.trace("< getResponse()");
 		return lResponse;
@@ -479,13 +632,6 @@ public class ServiceProvider implements Serializable {
 	 */
 	public void setSpIssuerUrl(final String pSpIssuerUrl) {
 		this.spIssuerUrl = pSpIssuerUrl;
-	}
-
-	/**
-	 * @param pSpMetaDataProviderUrl the spMetaDataProviderUrl to set
-	 */
-	public void setSpMetaDataProviderUrl(final String pSpMetaDataProviderUrl) {
-		this.spMetaDataProviderUrl = pSpMetaDataProviderUrl;
 	}
 
 	/**

@@ -8,6 +8,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 
 import javax.validation.constraints.NotNull;
@@ -57,6 +59,7 @@ import org.opensaml.saml2.core.impl.SubjectBuilder;
 import org.opensaml.saml2.core.impl.SubjectConfirmationBuilder;
 import org.opensaml.saml2.core.impl.SubjectConfirmationDataBuilder;
 import org.opensaml.saml2.core.impl.SubjectLocalityBuilder;
+import org.opensaml.ws.message.encoder.MessageEncodingException;
 import org.opensaml.xml.ConfigurationException;
 import org.opensaml.xml.XMLObject;
 import org.opensaml.xml.XMLObjectBuilder;
@@ -78,6 +81,7 @@ import org.opensaml.xml.signature.KeyInfo;
 import org.opensaml.xml.signature.Signature;
 import org.opensaml.xml.signature.SignatureConstants;
 import org.opensaml.xml.signature.impl.SignatureBuilder;
+import org.opensaml.xml.util.Base64;
 import org.opensaml.xml.util.XMLHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,7 +113,7 @@ public class SAML2ResponseBuilder {
 		}
 	}
 	
-	public static Document marshallObjectToDocument(final XMLObject pInSamlObject) throws MarshallingException, ParserConfigurationException {
+	public static Document marshallObjectToDocument(final XMLObject pInSamlObject) throws ParserConfigurationException, MessageEncodingException {
 
 		Element lOutDomRoot;
 		Document lOutDom = null;
@@ -126,38 +130,92 @@ public class SAML2ResponseBuilder {
 		return lOutDom;
 	}
 
-	public static Element marshallObject(final XMLObject pInSamlObject) throws MarshallingException {
+	// public static Element marshallObject(final XMLObject pInSamlObject) throws MarshallingException {
+	// Element lOutDomRoot = null;
+	//
+	// // Get appropriate marshaler
+	// MarshallerFactory lMarshallerFactory = Configuration.getMarshallerFactory();
+	// Marshaller lMarshaller = lMarshallerFactory.getMarshaller(pInSamlObject);
+	//
+	// // Marshal using the saml java object
+	// lOutDomRoot = lMarshaller.marshall(pInSamlObject);
+	//
+	// return lOutDomRoot;
+	// }
+
+	public static Element marshallObject(final XMLObject pInSamlObject) throws MessageEncodingException {
+		LOGGER.trace("> marshallMessage()");
 		Element lOutDomRoot = null;
-		
-		// Get appropriate marshaler
-		MarshallerFactory lMarshallerFactory = Configuration.getMarshallerFactory();
-		Marshaller lMarshaller = lMarshallerFactory.getMarshaller(pInSamlObject);
-		
-		// Marshal using the saml java object
-		lOutDomRoot = lMarshaller.marshall(pInSamlObject);
-		
+
+		try {
+			MarshallerFactory lMarshallerFactory = Configuration.getMarshallerFactory();
+			Marshaller lMarshaller = lMarshallerFactory.getMarshaller(pInSamlObject);
+			if (lMarshaller == null) {
+				LOGGER.error("Unable to marshall message, no marshaller registered for message object: {}", pInSamlObject.getElementQName());
+				throw new MessageEncodingException("Unable to marshall message, no marshaller registered for message object: " + pInSamlObject.getElementQName());
+			}
+			lOutDomRoot = lMarshaller.marshall(pInSamlObject);
+			LOGGER.trace("Marshalled message into DOM:\n{}", XMLHelper.nodeToString(lOutDomRoot));
+		} catch (MarshallingException e) {
+			LOGGER.error("Encountered error marshalling message to its DOM representation", e);
+			throw new MessageEncodingException("Encountered error marshalling message into its DOM representation", e);
+		}
+
+		LOGGER.trace("> marshallMessage()");
 		return lOutDomRoot;
 	}
-	
+
 	public static String serializeDOM(final Element pInDom) {
-		String lOutXmlString = null;
-		
-		lOutXmlString = XMLHelper.nodeToString(pInDom);
-		
+		LOGGER.trace("> serializeDOM()");
+
+		String lOutXmlString = XMLHelper.nodeToString(pInDom);
+
+		LOGGER.trace("< serializeDOM()");
 		return lOutXmlString;
 	}
 	
-	public static String marshallAndSerialize(final XMLObject pInSamlObject) throws MarshallingException {
-		Element lInDomRoot = null;
-		String lOutXmlString = null;
-		
+	public static String marshallAndSerialize(final XMLObject pInSamlObject) throws MessageEncodingException {
+		LOGGER.trace("> marshallAndSerialize()");
+
 		// marshal saml java object
-		lInDomRoot = marshallObject(pInSamlObject);
-		
+		Element lInDomRoot = marshallObject(pInSamlObject);
+
 		// serialize DOM
-		lOutXmlString = serializeDOM(lInDomRoot);
-		
+		String lOutXmlString = serializeDOM(lInDomRoot);
+
+		LOGGER.trace("< marshallAndSerialize()");
 		return lOutXmlString;
+	}
+
+	public static byte[] deflate(final String pInXmlString) throws MessageEncodingException {
+		LOGGER.trace("> deflateAndBase64Encode()");
+
+		ByteArrayOutputStream lBytesArrayOutStream = null;
+		try {
+			lBytesArrayOutStream = new ByteArrayOutputStream();
+			Deflater lDeflater = new Deflater(Deflater.DEFLATED, true);
+			DeflaterOutputStream lDeflaterStream = new DeflaterOutputStream(lBytesArrayOutStream, lDeflater);
+			lDeflaterStream.write(pInXmlString.getBytes("UTF-8"));
+			lDeflaterStream.finish();
+		} catch (IOException e) {
+			throw new MessageEncodingException("Unable to DEFLATE and Base64 encode SAML message", e);
+		}
+
+		LOGGER.trace("< deflateAndBase64Encode()");
+		return lBytesArrayOutStream.toByteArray();
+	}
+
+	public static String marshallSerializeDeflateAndBase64Encode(final XMLObject pInSamlObject) throws MessageEncodingException {
+		LOGGER.trace("> marshallSerializeDeflateAndBase64Encode()");
+
+		String lInXmlString = marshallAndSerialize(pInSamlObject);
+
+		byte[] lOutDeflated = deflate(lInXmlString);
+
+		String lOutBase64Deflated = Base64.encodeBytes(lOutDeflated, Base64.DONT_BREAK_LINES);
+
+		LOGGER.trace("< marshallSerializeDeflateAndBase64Encode()");
+		return lOutBase64Deflated;
 	}
 	
 	/**
