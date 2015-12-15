@@ -746,34 +746,61 @@ public class SAML2ResponseBuilder {
 	 * 
 	 * @return the created and/or modified pAttributeStatement
 	 */
-	public static AttributeStatement addAttributeToAttributeStatement(AttributeStatement pAttributeStatement, final String pAttName, final String pAttNameFormat, final String pAttFriendlyName, final String pAttValue) {
+	public static AttributeStatement addAttributeToAttributeStatement(AttributeStatement pAttributeStatement, final String pAttName, final String pAttNameFormat, final String pAttFriendlyName,
+			final Object pAttValue) {
+		Attribute lAttribute = null;
 		if (pAttName != null && pAttValue != null) {
-			if (pAttributeStatement == null) {
-				AttributeStatementBuilder lAttStatBuilder = (AttributeStatementBuilder) builderFactory.getBuilder(AttributeStatement.DEFAULT_ELEMENT_NAME);
-				pAttributeStatement = lAttStatBuilder.buildObject();
-			}
-			AttributeBuilder lAttBuilder = null;
-			Attribute lAttribute = null;
-			
-			XMLObjectBuilder<XSString> lAttValueBuilder = null;
-			XSString lAttValue = null;
-			
-			lAttBuilder = (AttributeBuilder) builderFactory.getBuilder(Attribute.DEFAULT_ELEMENT_NAME);
-			lAttribute = lAttBuilder.buildObject();
-			lAttribute.setName(pAttName);
-			if (pAttNameFormat!=null) {
-				lAttribute.setNameFormat(pAttNameFormat);
-			}
-			lAttribute.setFriendlyName(pAttFriendlyName);
-			
-			lAttValueBuilder = (XMLObjectBuilder<XSString>) builderFactory.getBuilder(XSString.TYPE_NAME);
-			lAttValue = (XSString) lAttValueBuilder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
-			lAttValue.setValue(pAttValue);
-			
-			lAttribute.getAttributeValues().add((XMLObject) lAttValue);
-			pAttributeStatement.getAttributes().add(lAttribute);
+			lAttribute = buildAttribute(pAttName, pAttNameFormat, pAttFriendlyName, pAttValue);
 		}
-		return pAttributeStatement;
+		return addAttributeToAttributeStatement(pAttributeStatement, lAttribute);
+	}
+
+	public static AttributeStatement addAttributeToAttributeStatement(AttributeStatement pAttributeStatement, final Attribute pAttribute) {
+		AttributeStatement lAttributeStatement = pAttributeStatement;
+		if (lAttributeStatement == null) {
+			AttributeStatementBuilder lAttStatBuilder = (AttributeStatementBuilder) builderFactory.getBuilder(AttributeStatement.DEFAULT_ELEMENT_NAME);
+			lAttributeStatement = lAttStatBuilder.buildObject();
+		}
+		lAttributeStatement.getAttributes().add(pAttribute);
+		return lAttributeStatement;
+	}
+
+	public static Attribute buildAttribute(final String pAttName, final String pAttNameFormat, final String pAttFriendlyName, final Object pAttValue) {
+		AttributeBuilder lAttBuilder = null;
+		Attribute lAttribute = null;
+		
+		XMLObjectBuilder<XSString> lAttValueBuilder = null;
+		XSString lAttValue = null;
+		
+		lAttBuilder = (AttributeBuilder) builderFactory.getBuilder(Attribute.DEFAULT_ELEMENT_NAME);
+		lAttribute = lAttBuilder.buildObject();
+		lAttribute.setName(pAttName);
+		if (pAttNameFormat!=null) {
+			lAttribute.setNameFormat(pAttNameFormat);
+		}
+		lAttribute.setFriendlyName(pAttFriendlyName);
+
+		lAttValueBuilder = (XMLObjectBuilder<XSString>) builderFactory.getBuilder(XSString.TYPE_NAME);
+		
+		if (pAttValue instanceof String) {
+			lAttValue = (XSString) lAttValueBuilder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
+			lAttValue.setValue((String) pAttValue);
+
+			lAttribute.getAttributeValues().add((XMLObject) lAttValue);
+		} else if (pAttValue instanceof List) {
+			Iterator<String> lIter = ((List<String>) pAttValue).iterator();
+			while (lIter.hasNext()) {
+				String lString = lIter.next();
+				lAttValue = (XSString) lAttValueBuilder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
+				lAttValue.setValue(lString);
+
+				lAttribute.getAttributeValues().add((XMLObject) lAttValue);
+			}
+		} else {
+			// to complex exception pprrrrrrrrrrt
+		}
+		
+		return lAttribute;
 	}
 	
 	/**
