@@ -13,14 +13,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import javax.validation.constraints.NotNull;
 
 import org.jasig.cas.authentication.principal.Principal;
+import org.jasig.cas.saml2.flow.exception.ServiceProviderParamsException;
 import org.jasig.cas.saml2.util.SAML2ResponseBuilder;
 import org.jasig.cas.web.support.Saml2AccountsArgumentExtractor;
 import org.joda.time.DateTime;
 import org.opensaml.saml2.core.Assertion;
+import org.opensaml.saml2.core.Attribute;
 import org.opensaml.saml2.core.AttributeStatement;
 import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.Response;
@@ -28,6 +32,8 @@ import org.opensaml.saml2.core.StatusCode;
 import org.opensaml.ws.message.encoder.MessageEncodingException;
 import org.opensaml.xml.Configuration;
 import org.opensaml.xml.io.MarshallingException;
+import org.opensaml.xml.security.credential.BasicCredential;
+import org.opensaml.xml.security.credential.Credential;
 import org.opensaml.xml.security.x509.BasicX509Credential;
 import org.opensaml.xml.signature.Signature;
 import org.opensaml.xml.signature.SignatureException;
@@ -37,9 +43,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ServiceProvider implements Serializable {
-	private static final long				serialVersionUID					= -2339718197074244232L;
+	private static final long					serialVersionUID					= -2339718197074244232L;
 
-	private static final Logger				LOGGER								= LoggerFactory.getLogger(ServiceProvider.class);
+	private static final Logger					LOGGER								= LoggerFactory.getLogger(ServiceProvider.class);
+
+	private static final SamlResponseBuilder	DEFAULT_RESPONSE_BUILDER			= new SamlResponseBuilderImpl();
+
 	// static {
 	// try {
 	// // Initialize the library
@@ -57,30 +66,7 @@ public class ServiceProvider implements Serializable {
 	// this.exploitSpMetaData();
 	// }
 
-	/**
-	 * This constant is to be used in Spring configuration XML file when you need to reference a Saml Attribute value.<br>
-	 * ex:
-	 * 
-	 * <pre>
-	 * {@code
-	 * <property name="attributeList">
-	 * 	<util:list>
-	 * 		<util:list>
-	 * 			<value>urn:oid:1.2.840.113556.1.4.221</value>
-	 * 			<value>urn:oasis:names:tc:SAML:2.0:attrname-format:uri</value>
-	 * 			<util:constant static-field="org.jasig.cas.saml2.support.ServiceProvider.USER_ID"/>
-	 * 		</util:list>
-	 * 	</util:list>
-	 * </property>
-	 * }
-	 * </pre>
-	 * <ul>
-	 * <li>USER_ID references the CAS Principal.id if "<tt>alternateUserName</tt>" is not set</li>
-	 * <li>if "<tt>alternateUserName</tt>
-	 * " is set, USER_ID references the CAS Principal.attribute referenced by the value of "<tt>alternateUserName</tt>"</li>
-	 * </ul>
-	 */
-	public static final String	USER_ID								= "UserId";
+
 
 	// ----------------------------------------------------------------------------
 	// Configuration Variables
@@ -269,59 +255,6 @@ public class ServiceProvider implements Serializable {
 	 */
 	private boolean				assertionConsumerServiceUrlRequired	= false;
 
-	/**
-	 * Saml response consumer service url.
-	 * <ul>
-	 * <li>If the "assertionConsumerServiceUrlRequired" is set to "true", then the "assertionConsumerServiceUrl" is set
-	 * from the corresponding value in the authentication request.<br>
-	 * Note that if this field is not present in the request, an error must be produced</li>
-	 * <li>If the "assertionConsumerServiceUrlRequired" is set to "false", then it could be either set in XML by
-	 * configuration or found, if present, in the SP metadatas (cf. AssertionConsumerService/Location)</li>
-	 * </ul>
-	 */
-	/*
-	 * RG_1_0 :
-	 * If the "assertionConsumerServiceUrlRequired" is set to "true", then the "assertionConsumerServiceUrl"
-	 * is set from the corresponding value in the authentication request.
-	 */
-	private String getAssertionConsumerServiceUrlToUse(final AuthnRequest pSamlRequest) {
-		// RG_1_0
-		LOGGER.trace("> getAssertionConsumerServiceUrlToUse");
-
-		// RG_1_2
-		String lAssertionConsumerServiceUrl = this.assertionConsumerServiceUrl;
-		if (this.assertionConsumerServiceUrlRequired) {
-			lAssertionConsumerServiceUrl = pSamlRequest.getAssertionConsumerServiceURL();
-		}
-		LOGGER.trace("< getAssertionConsumerServiceUrlToUse");
-		return lAssertionConsumerServiceUrl;
-	}
-
-	/*
-	 * RG_1_1 :
-	 * If this field is not present in the request, an error must be produced
-	 */
-	/**
-	 * Validate that the assertionConsumerServiceUrl is present if this value is mandatory (i. e.
-	 * assertionConsumerServiceUrlRequired = true)
-	 * 
-	 * @param pSamlRequest
-	 * @return true if assertionConsumerServiceUrl is not mandatory or if the assertionConsumerServiceUrl is present in
-	 *         the SAML Request
-	 */
-	private boolean raiseErrorOnAssertionConsumerServiceUrlControl(final AuthnRequest pSamlRequest) {
-		// RG_1_1
-		LOGGER.trace("> raiseErrorOnAssertionConsumerServiceUrlControl");
-
-		boolean lRaiseError = true;
-		if (!this.assertionConsumerServiceUrlRequired || (pSamlRequest != null && !pSamlRequest.getAssertionConsumerServiceURL().isEmpty())) {
-			lRaiseError = false;
-		}
-
-		LOGGER.trace("< raiseErrorOnAssertionConsumerServiceUrlControl");
-		return lRaiseError;
-	}
-	
 	/*
 	 * RG_1_2 :
 	 * If the "assertionConsumerServiceUrlRequired" is set to "false", use this variable,
@@ -341,12 +274,6 @@ public class ServiceProvider implements Serializable {
 	 * If present, initialize "nameIdFormat" with it's value
 	 */
 	private String				nameIdFormat;
-
-	/**
-	 * Allow to replace the SAML response Subject/NameID obtained from the "Principal.getId()" by the value of any
-	 * attribute present in this Principal.
-	 */
-	private String				alternateUserName;
 
 	/**
 	 * If this field is set to true, this means that the authentication request has been transformed by a "deflate"
@@ -383,19 +310,14 @@ public class ServiceProvider implements Serializable {
 	private PrivateKey						privateKey;
 
 	/**
-	 * add the <Conditions> to the SAML <Assertion>
-	 */
-	private ArrayList<URI>					restrictedURIs;
-
-	/**
-	 * The attributeList maps "AttributeStatement.Attribute Name" of the SAML Response to the "Principal.Attribute"
+	 * The casTosaml2PrincipalMapper maps "AttributeStatement.Attribute Name" of the SAML Response to the "Principal.Attribute"
 	 * The list must be formatted as follows : (<[SamlAttributName[mandatory]], [SamlAttributeNameFormat[optional]],
 	 * [CasPrincipalAttributeName[mandatory]]>)*
 	 * ex:
 	 * 
 	 * <pre>
 	 * {@code
-	 * <property name="attributeList">
+	 * <property name="casTosaml2PrincipalMapper">
 	 * 	<util:list>
 	 * 		<util:list>
 	 * 			<value>urn:oid:1.2.840.113556.1.4.221</value>
@@ -407,12 +329,9 @@ public class ServiceProvider implements Serializable {
 	 * }
 	 * </pre>
 	 */
-	private ArrayList<ArrayList<String>>	attributeList;
+	private CasToSaml2PrincipalMapper	casTosaml2PrincipalMapper;
 
-	// End of configuration Variables
-	// ----------------------------------------------------------------------------
-	
-
+	private SamlResponseBuilder			samlResponseBuilder					= ServiceProvider.DEFAULT_RESPONSE_BUILDER;
 	public boolean isAppropriateServiceProvider(@NotNull
 	final String pIssuerUrl) {
 		LOGGER.trace("> isAppropriateServiceProvider()");
@@ -438,10 +357,16 @@ public class ServiceProvider implements Serializable {
 	public org.jasig.cas.authentication.principal.Response getResponse(final Principal pCasPrincipal, final AuthnRequest pAuthnRequest, final String pRelayState) {
 		LOGGER.trace("> getResponse()");
 
-		final Map<String, String> lParameters = new HashMap<String, String>();
-		final Response lSamlResponse = buildSamlResponse(pCasPrincipal, pAuthnRequest);
+		// RG_1_1
+		if (errorOnAssertionConsumerServiceUrlControl(pAuthnRequest) && (this.assertionConsumerServiceUrl == null || this.assertionConsumerServiceUrl.isEmpty())) {
+			String lMsgError = "No AssertionConsumerServiceUrl found in the Authentication Request wheras 'assertionConsumerServiceUrlRequired' flag is enabled.";
+			LOGGER.error(lMsgError);
+			throw new ServiceProviderParamsException(lMsgError);
+		}
 
-		// TODO sign the response if necessary
+		final Map<String, String> lParameters = new HashMap<String, String>();
+		final CasToSaml2Principal lSamlPrincipal = buildCasToSaml2Principal(pCasPrincipal);
+		Response lSamlResponse = this.samlResponseBuilder.build(lSamlPrincipal, this.idpIssuerUrl, null, pAuthnRequest, this.assertionConsumerServiceUrl);
 
 		String lXmlResponse = null;
 		try {
@@ -469,156 +394,63 @@ public class ServiceProvider implements Serializable {
 		return lResponse;
 	}
 
-	private Response buildSamlResponse(final Principal pCasPrincipal, final AuthnRequest pAuthnRequest) {
-		LOGGER.trace("> buildSamlResponse()");
-
-		String lAssertionConsumerServiceUrl = null;
-
-		final String lUserId = getUserId(pCasPrincipal);
-
-		Response lResponse = SAML2ResponseBuilder.buildResponseEnveloppe(null);
-
-		lResponse.setInResponseTo(pAuthnRequest.getID());
-
-		// add the <Issuer> to the SAML <Response>
-		SAML2ResponseBuilder.addResponseIssuer(lResponse, this.idpIssuerUrl);
-		SAML2ResponseBuilder.addStatus(lResponse, StatusCode.SUCCESS_URI);
-
-		// add <Assertion>
-		Assertion lAssertion = buildSamlAssertion(pCasPrincipal, pAuthnRequest, lUserId, lResponse, lAssertionConsumerServiceUrl);
-		lResponse.getAssertions().add(lAssertion);
-
-		lResponse.setDestination(lAssertionConsumerServiceUrl);
-
-		LOGGER.trace("< buildSamlResponse()");
-		return lResponse;
+	/**
+	 * Saml response consumer service url.
+	 * <ul>
+	 * <li>If the "assertionConsumerServiceUrlRequired" is set to "true", then the "assertionConsumerServiceUrl" is set
+	 * from the corresponding value in the authentication request.<br>
+	 * Note that if this field is not present in the request, an error must be produced</li>
+	 * <li>If the "assertionConsumerServiceUrlRequired" is set to "false", then it could be either set in XML by
+	 * configuration or found, if present, in the SP metadatas (cf. AssertionConsumerService/Location)</li>
+	 * </ul>
+	 */
+	/*
+	 * RG_1_0 :
+	 * If the "assertionConsumerServiceUrlRequired" is set to "true", then the "assertionConsumerServiceUrl"
+	 * is set from the corresponding value in the authentication request.
+	 */
+	private String getAssertionConsumerServiceUrlToUse(final AuthnRequest pSamlRequest) {
+		// RG_1_0
+		LOGGER.trace("> getAssertionConsumerServiceUrlToUse");
+	
+		// RG_1_2
+		String lAssertionConsumerServiceUrl = this.assertionConsumerServiceUrl;
+		if (this.assertionConsumerServiceUrlRequired) {
+			lAssertionConsumerServiceUrl = pSamlRequest.getAssertionConsumerServiceURL();
+		}
+	
+		LOGGER.trace("< getAssertionConsumerServiceUrlToUse");
+		return lAssertionConsumerServiceUrl;
 	}
 
-	private Assertion buildSamlAssertion(final Principal pCasPrincipal, final AuthnRequest pAuthnRequest, final String pUserId, final Response pResponse, final String pAssertionConsumerServiceUrl) {
-		LOGGER.trace("> buildSamlAssertion()");
-
-		Assertion lAssertion = SAML2ResponseBuilder.buildAssertion(pResponse);
-		DateTime lDebutValidite = pResponse.getIssueInstant();
-		DateTime lFinValidite = pResponse.getIssueInstant().plusDays(30);
-
-		// add the <Issuer> to the SAML <Assertion>
-		SAML2ResponseBuilder.addAssertionIssuer(lAssertion, this.idpIssuerUrl);
-
-		// add the <Signature> to the SAML <Assertion>
-		BasicX509Credential lCredential = null;
-		lCredential = new BasicX509Credential();
-		lCredential.setEntityCertificate(this.x509certificate);
-		lCredential.setPrivateKey(this.privateKey);
-		Signature lAssertionSignature = SAML2ResponseBuilder.attachSignatureToSignableSAMLObject(lAssertion, lCredential);
-
-		// add the <Subject> to the SAML <Assertion>
-		String lInResponseTo = pAuthnRequest.getID();
-		URI lRecipient = null;
-		if (pAssertionConsumerServiceUrl != null) {
-			try {
-				lRecipient = new URI(pAssertionConsumerServiceUrl);
-			} catch (URISyntaxException e) {
-				LOGGER.error("Error while creating URI instance from '" + pAssertionConsumerServiceUrl + "'", e);
-			}
+	/*
+	 * RG_1_1 :
+	 * If this field is not present in the request, an error must be produced
+	 */
+	/**
+	 * Validate that the assertionConsumerServiceUrl is present in the authentication request if this value is mandatory
+	 * (i. e.
+	 * assertionConsumerServiceUrlRequired = true)
+	 * 
+	 * @param pSamlRequest
+	 * @return true if assertionConsumerServiceUrl is not mandatory or if the assertionConsumerServiceUrl is present in
+	 *         the SAML Request
+	 */
+	private boolean errorOnAssertionConsumerServiceUrlControl(final AuthnRequest pSamlRequest) {
+		// RG_1_1
+		LOGGER.trace("> errorOnAssertionConsumerServiceUrlControl");
+	
+		boolean lError = false;
+		if (this.assertionConsumerServiceUrlRequired && (pSamlRequest == null || pSamlRequest.getAssertionConsumerServiceURL().isEmpty())) {
+			lError = true;
 		}
-		SAML2ResponseBuilder.addSubject(lAssertion, pUserId, lDebutValidite, lFinValidite, lInResponseTo, lRecipient);
-
-		// add the <Conditions> to the SAML <Assertion>
-		SAML2ResponseBuilder.addConditions(lAssertion, lDebutValidite, lFinValidite, this.restrictedURIs);
-
-		// add the <AttributeStatement> to the SAML <Assertion>
-		AttributeStatement lAttStat = null;
-		for (List<String> lList : attributeList) {
-			lAttStat = addAttributeToAttributeStatement(pCasPrincipal, lAttStat, lList);
-		}
-		SAML2ResponseBuilder.addAttributeStatement(lAssertion, lAttStat);
-
-		// add the <AuthnStatement> to the SAML <Assertion>
-		SAML2ResponseBuilder.addAuthnStatement(lAssertion, lDebutValidite, lFinValidite, null, null);
-
-		// Marshall the Object Tree
-		try {
-			Configuration.getMarshallerFactory().getMarshaller(lAssertion).marshall(lAssertion);
-		} catch (MarshallingException e) {
-			LOGGER.error("Unable to marshal Object Tree", e);
-		}
-
-		// Computing the Signature Value
-		try {
-			Signer.signObject(lAssertionSignature);
-		} catch (SignatureException e) {
-			LOGGER.error("Unable to compute signature", e);
-		}
-
-		LOGGER.trace("< buildSamlAssertion()");
-		return lAssertion;
+	
+		LOGGER.trace("< errorOnAssertionConsumerServiceUrlControl");
+		return lError;
 	}
 
-	private AttributeStatement addAttributeToAttributeStatement(final Principal pCasPrincipal, final AttributeStatement pAttStat, final List<String> pList) {
-		LOGGER.trace("> addAttributeToAttributeStatement()");
-
-		AttributeStatement lAttStat = null;
-		String lSamlAttributeName = null;
-		String lSamlAttributeFormatName = null;
-		String lCasPrincipalAttributeName = null;
-		String lSamlAttributeValue = null;
-
-		// check attribute list definition
-		String lErrorString = "Wrong attribute list definition. the list must be formated as follow: <[SamlAttributName[mandatory]], [SamlAttributeNameFormat[optional]], [CasPrincipalAttributeName[mandatory]]>";
-		if (pList.size() > 3) {
-			LOGGER.error(lErrorString);
-			return pAttStat;
-		}
-		if (pList.size() == 3) {
-			lSamlAttributeFormatName = pList.get(1);
-			if (lSamlAttributeFormatName == null || lSamlAttributeFormatName.indexOf("urn:oasis:names:tc:SAML:2.0:attrname-format:") == -1) {
-				LOGGER.error(lErrorString);
-				return pAttStat;
-			}
-			lCasPrincipalAttributeName = pList.get(2);
-		} else {
-			lCasPrincipalAttributeName = pList.get(1);
-		}
-		lSamlAttributeName = pList.get(0);
-		// --
-
-		if (USER_ID.equals(lCasPrincipalAttributeName)) {
-			lSamlAttributeValue = getUserId(pCasPrincipal);
-		} else {
-			lSamlAttributeValue = getPrincipalAttribute(pCasPrincipal, lCasPrincipalAttributeName);
-		}
-		lAttStat = SAML2ResponseBuilder.addAttributeToAttributeStatement(pAttStat, lSamlAttributeName, lSamlAttributeFormatName, null, lSamlAttributeValue);
-
-		LOGGER.trace("< addAttributeToAttributeStatement()");
-		return lAttStat;
-	}
-
-	private String getUserId(final Principal pCasPrincipal) {
-		LOGGER.trace("> getUserId()");
-
-		final String lUserId;
-		if (this.alternateUserName == null) {
-			lUserId = pCasPrincipal.getId();
-		} else {
-			final String lAttributeValue = (String) pCasPrincipal.getAttributes().get(this.alternateUserName);
-			if (lAttributeValue == null) {
-				lUserId = pCasPrincipal.getId();
-			} else {
-				lUserId = lAttributeValue;
-			}
-		}
-
-		LOGGER.trace("< getUserId()");
-		return lUserId;
-	}
-
-	private String getPrincipalAttribute(final Principal pCasPrincipal, final String pPrincipalAttributeName) {
-		LOGGER.trace("> getPrincipalAttribute()");
-
-		String lAttributeValue = (String) pCasPrincipal.getAttributes().get(pPrincipalAttributeName);
-
-		LOGGER.trace("< getPrincipalAttribute()");
-		return lAttributeValue;
+	private CasToSaml2Principal buildCasToSaml2Principal(final Principal pCasPrincipal) {
+		return new CasToSaml2Principal(pCasPrincipal, this.casTosaml2PrincipalMapper);
 	}
 
 	// ----------------------------------------------------------------------------
@@ -663,14 +495,6 @@ public class ServiceProvider implements Serializable {
 	}
 
 	/**
-	 * @param pAlternateUserName
-	 *            the alternateUserName to set
-	 */
-	public void setAlternateUserName(final String pAlternateUserName) {
-		this.alternateUserName = pAlternateUserName;
-	}
-
-	/**
 	 * @param pActivateDeflate the activateDeflate to set
 	 */
 	public void setActivateDeflate(final boolean pActivateDeflate) {
@@ -699,17 +523,21 @@ public class ServiceProvider implements Serializable {
 	}
 
 	/**
-	 * @param pRestrictedURIs the restrictedURIs to set
+	 * @param pCas2samlAttributeMappingList the casTosaml2PrincipalMapper to set
 	 */
-	public void setRestrictedURIs(final ArrayList<URI> pRestrictedURIs) {
-		this.restrictedURIs = pRestrictedURIs;
+	public void setCasTosaml2PrincipalMapper(final CasToSaml2PrincipalMapper pCas2samlAttributeMappingList) {
+		this.casTosaml2PrincipalMapper = pCas2samlAttributeMappingList;
 	}
 
+	// End of configuration Variables
+	// ----------------------------------------------------------------------------
+
 	/**
-	 * @param pAttributeList the attributeList to set
+	 * @param pSamlResponseBuilder
+	 *            the samlResponseBuilder to set
 	 */
-	public void setAttributeList(final ArrayList<ArrayList<String>> pAttributeList) {
-		this.attributeList = pAttributeList;
+	public void setSamlResponseBuilder(SamlResponseBuilder pSamlResponseBuilder) {
+		samlResponseBuilder = pSamlResponseBuilder;
 	}
 
 	/**
@@ -743,6 +571,214 @@ public class ServiceProvider implements Serializable {
 		 */
 		private Object readResolve() throws ObjectStreamException {
 			return Saml2AccountsArgumentExtractor.instance.findAppropriateServiceProvider(this.spIssuerUrl);
+		}
+	}
+
+	public static interface SamlResponseBuilder {
+		public SamlAssertionBuilder getSamlAssertionBuilder();
+
+		public Response build(final CasToSaml2Principal pSamlPrincipal, final String pIdpIssuerUrl, final Response pSamlResponse, final AuthnRequest pSamlRequest,
+				final String pAssertionConsumerServiceUrl);
+	}
+	
+	public static class SamlResponseBuilderImpl implements SamlResponseBuilder {
+
+		private SamlAssertionBuilder	samlAssertionBuilder;
+
+		@Override
+		public Response build(final CasToSaml2Principal pSamlPrincipal, final String pIdpIssuerUrl, final Response pSamlResponse, final AuthnRequest pSamlRequest,
+				final String pAssertionConsumerServiceUrl) {
+			LOGGER.trace("> build()");
+
+			String lAssertionConsumerServiceUrl = null;
+
+			final String lUserId = pSamlPrincipal.getId();
+
+			Response lResponse = SAML2ResponseBuilder.buildResponseEnveloppe(null);
+
+			lResponse.setInResponseTo(pSamlRequest.getID());
+
+			// add the <Issuer> to the SAML <Response>
+			SAML2ResponseBuilder.addResponseIssuer(lResponse, pIdpIssuerUrl);
+			SAML2ResponseBuilder.addStatus(lResponse, StatusCode.SUCCESS_URI);
+
+			lResponse.setDestination(lAssertionConsumerServiceUrl);
+
+			// add <Assertion>
+			Assertion lAssertion = getSamlAssertionBuilder().build(pSamlPrincipal, pIdpIssuerUrl, pSamlResponse, pSamlRequest, pAssertionConsumerServiceUrl);
+
+			lResponse.getAssertions().add(lAssertion);
+
+			// TODO sign the response if necessary
+
+			LOGGER.trace("< build()");
+			return lResponse;
+		}
+
+		/**
+		 * @return the samlAssertionBuilder
+		 */
+		public SamlAssertionBuilder getSamlAssertionBuilder() {
+			return samlAssertionBuilder;
+		}
+
+		/**
+		 * @param pSamlAssertionBuilder
+		 *            the samlAssertionBuilder to set
+		 */
+		public void setSamlAssertionBuilder(SamlAssertionBuilder pSamlAssertionBuilder) {
+			samlAssertionBuilder = pSamlAssertionBuilder;
+		}
+
+	}
+
+	public static interface SamlAssertionBuilder {
+		public Assertion build(final CasToSaml2Principal pSamlPrincipal, final String pIdpIssuerUrl, final Response pSamlResponse, final AuthnRequest pSamlRequest,
+				final String pAssertionConsumerServiceUrl);
+	}
+
+	public static class SamlAssertionBuilderImpl implements SamlAssertionBuilder {
+
+		@NotNull
+		private Credential		credential;
+
+		/**
+		 * add the <Conditions> to the SAML <Assertion>
+		 */
+		private ArrayList<URI>	restrictedURIs;
+
+		public SamlAssertionBuilderImpl(@NotNull X509Certificate x509certificate, @NotNull PrivateKey privateKey) {
+			this.credential = new BasicX509Credential();
+			((BasicX509Credential) this.credential).setEntityCertificate(x509certificate);
+			((BasicCredential) this.credential).setPrivateKey(privateKey);
+		}
+
+		@Override
+		public Assertion build(final CasToSaml2Principal pSamlPrincipal, final String pIdpIssuerUrl, final Response pSamlResponse, final AuthnRequest pSamlRequest,
+				final String pAssertionConsumerServiceUrl) {
+			LOGGER.trace("> enrich()");
+
+			Assertion lAssertion = SAML2ResponseBuilder.buildAssertion(pSamlResponse);
+			DateTime lDebutValidite = pSamlResponse.getIssueInstant();
+			DateTime lFinValidite = pSamlResponse.getIssueInstant().plusDays(30);
+
+			// add the <Issuer> to the SAML <Assertion>
+			SAML2ResponseBuilder.addAssertionIssuer(lAssertion, pIdpIssuerUrl);
+
+			// add the <Signature> to the SAML <Assertion>
+			Signature lAssertionSignature = SAML2ResponseBuilder.attachSignatureToSignableSAMLObject(lAssertion, this.credential);
+
+			// add the <Subject> to the SAML <Assertion>
+			String lInResponseTo = pSamlRequest.getID();
+			URI lRecipient = null;
+			if (pAssertionConsumerServiceUrl != null) {
+				try {
+					lRecipient = new URI(pAssertionConsumerServiceUrl);
+				} catch (URISyntaxException e) {
+					LOGGER.error("Error while creating URI instance from '" + pAssertionConsumerServiceUrl + "'", e);
+				}
+			}
+			SAML2ResponseBuilder.addSubject(lAssertion, pSamlPrincipal.getId(), lDebutValidite, lFinValidite, lInResponseTo, lRecipient);
+
+			// add the <Conditions> to the SAML <Assertion>
+			SAML2ResponseBuilder.addConditions(lAssertion, lDebutValidite, lFinValidite, this.restrictedURIs);
+
+			// add the <AttributeStatement> to the SAML <Assertion>
+			AttributeStatement lAttStat = buildAttributeStatement(pSamlPrincipal);
+			SAML2ResponseBuilder.addAttributeStatement(lAssertion, lAttStat);
+
+			// add the <AuthnStatement> to the SAML <Assertion>
+			SAML2ResponseBuilder.addAuthnStatement(lAssertion, lDebutValidite, lFinValidite, null, null);
+
+			// Marshall the Object Tree
+			try {
+				Configuration.getMarshallerFactory().getMarshaller(lAssertion).marshall(lAssertion);
+			} catch (MarshallingException e) {
+				LOGGER.error("Unable to marshal Object Tree", e);
+			}
+
+			// Computing the Signature Value
+			try {
+				Signer.signObject(lAssertionSignature);
+			} catch (SignatureException e) {
+				LOGGER.error("Unable to compute signature", e);
+			}
+
+			LOGGER.trace("< enrich()");
+			return lAssertion;
+		}
+
+		private AttributeStatement buildAttributeStatement(final CasToSaml2Principal pSamlPrincipal) {
+			LOGGER.trace("> buildAttributeStatement()");
+
+			AttributeStatement lAttStat = null;
+			Set<Entry<String, Object>> lCasToSamlAttributes = pSamlPrincipal.getAttributes().entrySet();
+			for (Entry<String, Object> lEntry : lCasToSamlAttributes) {
+				Attribute lSamlAttribute = (Attribute) lEntry.getValue();
+				lAttStat = SAML2ResponseBuilder.addAttributeToAttributeStatement(lAttStat, lSamlAttribute);
+			}
+
+			LOGGER.trace("< buildAttributeStatement()");
+			return lAttStat;
+		}
+
+		/**
+		 * @param pCredential
+		 *            the credential to set
+		 */
+		public void setCredential(final Credential pCredential) {
+			credential = pCredential;
+		}
+
+		/**
+		 * @param pRestrictedURIs
+		 *            the restrictedURIs to set
+		 */
+		public void setRestrictedURIs(final ArrayList<URI> pRestrictedURIs) {
+			restrictedURIs = pRestrictedURIs;
+		}
+	}
+
+	public static class CasToSaml2Principal implements Principal {
+		@NotNull
+		private final Principal						casPrincipal;
+		@NotNull
+		private final CasToSaml2PrincipalMapper		casPrincipalMapper;
+
+		public CasToSaml2Principal(final Principal pCasPrincipal, final CasToSaml2PrincipalMapper pCasPrincipalMapper) {
+			this.casPrincipal = pCasPrincipal;
+			this.casPrincipalMapper = pCasPrincipalMapper;
+		}
+
+		@Override
+		public String getId() {
+			LOGGER.trace("> getId()");
+
+			String lUserId = this.casPrincipalMapper.getId(this.casPrincipal);
+
+			LOGGER.trace("< getId()");
+			return lUserId;
+		}
+
+		@Override
+		public Map<String, Object> getAttributes() {
+			LOGGER.trace("> getAttributes()");
+
+			List<AttributeMapper> lMappingList = this.casPrincipalMapper.getAttributesMappingList();
+			Map lOutAttributeMap = new HashMap<String, Attribute>(this.casPrincipalMapper.getAttributesMappingList().size());
+			for (AttributeMapper lAttributeMapper : lMappingList) {
+				String lKey = lAttributeMapper.getMappedCasPrincipalAttributeName();
+				Object lValue = lAttributeMapper.getSamlAttributeValue(this.casPrincipal);
+				String lName = lAttributeMapper.getSamlAttributeName();
+				String lNameFormat = lAttributeMapper.getSamlAttributeNameFormat();
+				String lFriendlyName = lAttributeMapper.getSamlAttributeFriendlyName();
+				
+				Attribute lSamlAttribute = SAML2ResponseBuilder.buildAttribute(lName, lNameFormat, lFriendlyName, lValue);
+				lOutAttributeMap.put(lKey, lSamlAttribute);
+			}
+
+			LOGGER.trace("< getAttributes()");
+			return lOutAttributeMap;
 		}
 	}
 }
