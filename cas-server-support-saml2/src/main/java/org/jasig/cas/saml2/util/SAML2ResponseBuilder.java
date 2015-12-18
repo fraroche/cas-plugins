@@ -33,7 +33,6 @@ import org.opensaml.saml2.core.AuthnStatement;
 import org.opensaml.saml2.core.Conditions;
 import org.opensaml.saml2.core.Issuer;
 import org.opensaml.saml2.core.NameID;
-import org.opensaml.saml2.core.NameIDType;
 import org.opensaml.saml2.core.Response;
 import org.opensaml.saml2.core.Status;
 import org.opensaml.saml2.core.StatusCode;
@@ -394,10 +393,11 @@ public class SAML2ResponseBuilder {
 	 *            : [Optional] - A URI specifying the entity or location to which an attesting entity can present the
 	 *            assertion. For example, this attribute might indicate that the assertion must be delivered to a
 	 *            particular network endpoint in order to prevent an intermediary from redirecting it someplace else.
+	 * @param pSubjectNameIdFormat TODO
 	 * @return Subject
 	 */
 	private static Subject buildSubject(@NotNull
-	final String pSubjectName, final DateTime pValidityStart, final DateTime pValidityEnd, final String pInResponseTo, final URI pRecipient) {
+	final String pSubjectName, final DateTime pValidityStart, final DateTime pValidityEnd, final String pInResponseTo, final URI pRecipient, final String pSubjectNameIdFormat) {
 		
 		String lRecipient = pRecipient==null?null:pRecipient.toString();
 		
@@ -408,7 +408,7 @@ public class SAML2ResponseBuilder {
 		// <NameID>
 		NameIDBuilder lNameIdBuilder = (NameIDBuilder) builderFactory.getBuilder(NameID.DEFAULT_ELEMENT_NAME);
 		NameID lNameId = lNameIdBuilder.buildObject();
-		lNameId.setFormat(NameIDType.UNSPECIFIED);
+		lNameId.setFormat(pSubjectNameIdFormat);
 		lNameId.setValue(pSubjectName);
 		lSubject.setNameID(lNameId);
 		
@@ -449,7 +449,6 @@ public class SAML2ResponseBuilder {
 	 * 
 	 * @param pAssertion
 	 *            : [Mandatory] - The saml Assertion the Subject must be attached to.
-	 * 
 	 * @param pSubjectName
 	 *            : [Mandatory] -
 	 *            saml NameID value
@@ -472,11 +471,12 @@ public class SAML2ResponseBuilder {
 	 *            assertion. For example, this attribute might indicate that the assertion must be delivered to a
 	 *            particular network endpoint in order to prevent an intermediary from redirecting it someplace else.
 	 *            resulted in its presentation.
+	 * @param pSubjectNameIdFormat TODO
 	 */
 	public static void addSubject(@NotNull Assertion pAssertion, @NotNull
-	final String pSubjectName, final DateTime pValidityStart, final DateTime pValidityEnd, final String pInResponseTo, final URI pRecipient) {
+	final String pSubjectName, final DateTime pValidityStart, final DateTime pValidityEnd, final String pInResponseTo, final URI pRecipient, final String pSubjectNameIdFormat) {
 		
-		Subject subject = buildSubject(pSubjectName, pValidityStart, pValidityEnd, pInResponseTo, pRecipient);
+		Subject subject = buildSubject(pSubjectName, pValidityStart, pValidityEnd, pInResponseTo, pRecipient, pSubjectNameIdFormat);
 		pAssertion.setSubject(subject);
 	}
 	
@@ -591,27 +591,28 @@ public class SAML2ResponseBuilder {
 	 *            authenticated. IPv4 addresses SHOULD be represented in dotted-decimal format (e.g., "1.2.3.4").
 	 *            IPv6 addresses SHOULD be represented as defined by Section 2.2 of IETF RFC 3513 [RFC 3513]
 	 *            (e.g., "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210").
-	 * @param pSubjectIssuerDsnName
+	 * @param pSubjectIssuerDnsName
 	 *            The DNS name of the system from which the principal identified by the subject was authenticated.
+	 * @param pAuthnContextClassRef TODO
 	 */
-	private static AuthnStatement buildAuthStatement(final DateTime pValidityStart, final DateTime pValidityEnd, final String pSubjectIssuerIPaddress, final String pSubjectIssuerDsnName) {
+	private static AuthnStatement buildAuthStatement(final DateTime pValidityStart, final DateTime pValidityEnd, final String pSubjectIssuerIPaddress, final String pSubjectIssuerDnsName, String pAuthnContextClassRef) {
 		
 		AuthnStatementBuilder lAuthStatBuilder = (AuthnStatementBuilder) builderFactory.getBuilder(AuthnStatement.DEFAULT_ELEMENT_NAME);
 		AuthnStatement lAuthStat = lAuthStatBuilder.buildObject();
 		lAuthStat.setAuthnInstant(pValidityStart);
 		lAuthStat.setSessionNotOnOrAfter(pValidityEnd);
 		SubjectLocalityBuilder lSubjectLocalityBuilder = (SubjectLocalityBuilder) builderFactory.getBuilder(SubjectLocality.DEFAULT_ELEMENT_NAME);
-		if (pSubjectIssuerIPaddress != null || pSubjectIssuerDsnName != null) {
+		if (pSubjectIssuerIPaddress != null || pSubjectIssuerDnsName != null) {
 			SubjectLocality lSubjectLocality = lSubjectLocalityBuilder.buildObject();
 			lSubjectLocality.setAddress(pSubjectIssuerIPaddress);
-			lSubjectLocality.setDNSName(pSubjectIssuerDsnName);
+			lSubjectLocality.setDNSName(pSubjectIssuerDnsName);
 			lAuthStat.setSubjectLocality(lSubjectLocality);
 		}
 		AuthnContextBuilder lAuthnContextBuilder = (AuthnContextBuilder) builderFactory.getBuilder(AuthnContext.DEFAULT_ELEMENT_NAME);
 		AuthnContext lAuthnContext = lAuthnContextBuilder.buildObject();
 		AuthnContextClassRefBuilder lAuthnContextClassRefBuilder = (AuthnContextClassRefBuilder) builderFactory.getBuilder(AuthnContextClassRef.DEFAULT_ELEMENT_NAME);
 		AuthnContextClassRef lAuthnContextClassRef = lAuthnContextClassRefBuilder.buildObject();
-		lAuthnContextClassRef.setAuthnContextClassRef(AuthnContext.UNSPECIFIED_AUTHN_CTX);
+		lAuthnContextClassRef.setAuthnContextClassRef(pAuthnContextClassRef);
 		lAuthnContext.setAuthnContextClassRef(lAuthnContextClassRef);
 		lAuthStat.setAuthnContext(lAuthnContext);
 		return lAuthStat;
@@ -644,11 +645,12 @@ public class SAML2ResponseBuilder {
 	 *            (e.g., "FEDC:BA98:7654:3210:FEDC:BA98:7654:3210").
 	 * @param pSubjectIssuerDsnName
 	 *            The DNS name of the system from which the principal identified by the subject was authenticated.
+	 * @param pAuthnContextClassRef TODO
 	 */
 	public static void addAuthnStatement(@NotNull Assertion pAssertion, final DateTime pValidityStart, final DateTime pValidityEnd, final String pSubjectIssuerIPaddress,
-			final String pSubjectIssuerDsnName) {
+			final String pSubjectIssuerDsnName, final String pAuthnContextClassRef) {
 		
-		AuthnStatement lAuthStatement = buildAuthStatement(pValidityStart, pValidityEnd, pSubjectIssuerIPaddress, pSubjectIssuerDsnName);
+		AuthnStatement lAuthStatement = buildAuthStatement(pValidityStart, pValidityEnd, pSubjectIssuerIPaddress, pSubjectIssuerDsnName, pAuthnContextClassRef);
 		pAssertion.getAuthnStatements().add(lAuthStatement);
 	}
 	
@@ -726,8 +728,10 @@ public class SAML2ResponseBuilder {
 		addAttributeStatement(pAssertion, lAttStatement);
 	}
 	
-	public static void addAttributeStatement(Assertion pAssertion, final AttributeStatement pAttributeStatement) {
-		pAssertion.getAttributeStatements().add(pAttributeStatement);
+	public static void addAttributeStatement(@NotNull Assertion pAssertion, final AttributeStatement pAttributeStatement) {
+		if (pAttributeStatement != null) {
+			pAssertion.getAttributeStatements().add(pAttributeStatement);
+		}
 	}
 	
 	/**

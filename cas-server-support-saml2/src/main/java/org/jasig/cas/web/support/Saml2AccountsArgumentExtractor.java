@@ -60,8 +60,8 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 			if (lAuthnRequest != null) {
 				lIssuer = lAuthnRequest.getIssuer();
 				if (lIssuer != null) {
-					String lIssuerURL = lIssuer.getValue();
-					lServiceProvider = this.findAppropriateServiceProvider(lIssuerURL);
+					String lIssuerValue = lIssuer.getValue();
+					lServiceProvider = this.findAppropriateServiceProvider(lIssuerValue);
 					if (lServiceProvider != null) {
 						lAssertionConsumerServiceUrl = lAuthnRequest.getAssertionConsumerServiceURL();
 						lService = new Saml2AccountsService(lAssertionConsumerServiceUrl, lRelayState, lXmlRequest, lServiceProvider);
@@ -74,11 +74,11 @@ public class Saml2AccountsArgumentExtractor extends AbstractSingleSignOutEnabled
 		return lService;
 	}
 
-	public ServiceProvider findAppropriateServiceProvider(final String lIssuerURL) {
+	public ServiceProvider findAppropriateServiceProvider(final String pIssuerValue) {
 		LOGGER.trace("> findAppropriateServiceProvider()");
 
 		for (ServiceProvider lSpConfig : this.serviceProviderList) {
-			if (lSpConfig.isAppropriateServiceProvider(lIssuerURL)) {
+			if (lSpConfig.isAppropriateServiceProvider(pIssuerValue)) {
 				LOGGER.trace("< findAppropriateServiceProvider()");
 				return lSpConfig;
 			}

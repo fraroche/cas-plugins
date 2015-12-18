@@ -7,8 +7,6 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.security.PrivateKey;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,15 +24,15 @@ import org.joda.time.DateTime;
 import org.opensaml.saml2.core.Assertion;
 import org.opensaml.saml2.core.Attribute;
 import org.opensaml.saml2.core.AttributeStatement;
+import org.opensaml.saml2.core.AuthnContext;
 import org.opensaml.saml2.core.AuthnRequest;
+import org.opensaml.saml2.core.NameIDType;
 import org.opensaml.saml2.core.Response;
 import org.opensaml.saml2.core.StatusCode;
 import org.opensaml.ws.message.encoder.MessageEncodingException;
 import org.opensaml.xml.Configuration;
 import org.opensaml.xml.io.MarshallingException;
-import org.opensaml.xml.security.credential.BasicCredential;
 import org.opensaml.xml.security.credential.Credential;
-import org.opensaml.xml.security.x509.BasicX509Credential;
 import org.opensaml.xml.signature.Signature;
 import org.opensaml.xml.signature.SignatureException;
 import org.opensaml.xml.signature.Signer;
@@ -303,11 +301,6 @@ public class ServiceProvider implements Serializable {
 	// */
 	// private Cipherer responseCipherer;
 
-	@NotNull
-	private X509Certificate					x509certificate;
-
-	@NotNull
-	private PrivateKey						privateKey;
 
 	/**
 	 * The casTosaml2PrincipalMapper maps "AttributeStatement.Attribute Name" of the SAML Response to the "Principal.Attribute"
@@ -333,20 +326,20 @@ public class ServiceProvider implements Serializable {
 
 	private SamlResponseBuilder			samlResponseBuilder					= ServiceProvider.DEFAULT_RESPONSE_BUILDER;
 	public boolean isAppropriateServiceProvider(@NotNull
-	final String pIssuerUrl) {
+	final String pIssuerValue) {
 		LOGGER.trace("> isAppropriateServiceProvider()");
 
 		boolean lMatchingServiceProvider = false;
-		if (pIssuerUrl.equals(this.spIssuerUrl)) {
+		if (pIssuerValue.equals(this.spIssuerUrl)) {
 			lMatchingServiceProvider = true;
 		} else {
 			try {
-				URL lIssuerUrl = new URL(pIssuerUrl);
-				if (this.spIssuerUrl.indexOf(lIssuerUrl.getHost()) != -1) {
+				if ((this.spIssuerUrl.indexOf(pIssuerValue) != -1)
+						|| ((this.spIssuerUrl.startsWith("http")) ? (pIssuerValue.indexOf(new URL(this.spIssuerUrl).getHost()) != -1) : (pIssuerValue.indexOf(this.spIssuerUrl) != -1))) {
 					lMatchingServiceProvider = true;
 				}
 			} catch (MalformedURLException e) {
-				LOGGER.error("Error while parsing the '" + pIssuerUrl + "' string in URL.", e);
+				LOGGER.error("Error while parsing the '" + pIssuerValue + "' string in URL.", e);
 			}
 		}
 	
@@ -363,10 +356,11 @@ public class ServiceProvider implements Serializable {
 			LOGGER.error(lMsgError);
 			throw new ServiceProviderParamsException(lMsgError);
 		}
+		final String lAssertionConsumerServiceUrl = getAssertionConsumerServiceUrlToUse(pAuthnRequest);
 
 		final Map<String, String> lParameters = new HashMap<String, String>();
 		final CasToSaml2Principal lSamlPrincipal = buildCasToSaml2Principal(pCasPrincipal);
-		Response lSamlResponse = this.samlResponseBuilder.build(lSamlPrincipal, this.idpIssuerUrl, null, pAuthnRequest, this.assertionConsumerServiceUrl);
+		Response lSamlResponse = this.samlResponseBuilder.build(lSamlPrincipal, this.idpIssuerUrl, null, pAuthnRequest, lAssertionConsumerServiceUrl);
 
 		String lXmlResponse = null;
 		try {
@@ -388,7 +382,7 @@ public class ServiceProvider implements Serializable {
 			LOGGER.error("'UTF-8' encoding is not supported", e);
 		}
 
-		org.jasig.cas.authentication.principal.Response lResponse = org.jasig.cas.authentication.principal.Response.getPostResponse(getAssertionConsumerServiceUrlToUse(pAuthnRequest), lParameters);
+		org.jasig.cas.authentication.principal.Response lResponse = org.jasig.cas.authentication.principal.Response.getPostResponse(lAssertionConsumerServiceUrl, lParameters);
 
 		LOGGER.trace("< getResponse()");
 		return lResponse;
@@ -415,7 +409,7 @@ public class ServiceProvider implements Serializable {
 	
 		// RG_1_2
 		String lAssertionConsumerServiceUrl = this.assertionConsumerServiceUrl;
-		if (this.assertionConsumerServiceUrlRequired) {
+		if (this.assertionConsumerServiceUrlRequired || lAssertionConsumerServiceUrl == null) {
 			lAssertionConsumerServiceUrl = pSamlRequest.getAssertionConsumerServiceURL();
 		}
 	
@@ -509,21 +503,8 @@ public class ServiceProvider implements Serializable {
 	}
 
 	/**
-	 * @param pX509certificate the x509certificate to set
-	 */
-	public void setX509certificate(final X509Certificate pX509certificate) {
-		this.x509certificate = pX509certificate;
-	}
-
-	/**
-	 * @param pPrivateKey the privateKey to set
-	 */
-	public void setPrivateKey(final PrivateKey pPrivateKey) {
-		this.privateKey = pPrivateKey;
-	}
-
-	/**
-	 * @param pCas2samlAttributeMappingList the casTosaml2PrincipalMapper to set
+	 * @param pCas2samlAttributeMappingList
+	 *            the casTosaml2PrincipalMapper to set
 	 */
 	public void setCasTosaml2PrincipalMapper(final CasToSaml2PrincipalMapper pCas2samlAttributeMappingList) {
 		this.casTosaml2PrincipalMapper = pCas2samlAttributeMappingList;
@@ -554,11 +535,16 @@ public class ServiceProvider implements Serializable {
 	/**
 	 * This class is a serialization replacement of the ServiceProvider class.
 	 */
-	private class SerializedForm implements Serializable {
+	private static class SerializedForm implements Serializable {
+		/**
+		 * 
+		 */
+		private static final long	serialVersionUID	= 1L;
 		private final String	spIssuerUrl;
 
 		private SerializedForm(final ServiceProvider pServiceProvider) {
 			this.spIssuerUrl = pServiceProvider.spIssuerUrl;
+			LOGGER.trace(this.spIssuerUrl);
 		}
 
 		/**
@@ -582,15 +568,21 @@ public class ServiceProvider implements Serializable {
 	}
 	
 	public static class SamlResponseBuilderImpl implements SamlResponseBuilder {
+		private Credential				credential;
 
 		private SamlAssertionBuilder	samlAssertionBuilder;
+
+
+		public SamlResponseBuilderImpl() {
+			super();
+		}
 
 		@Override
 		public Response build(final CasToSaml2Principal pSamlPrincipal, final String pIdpIssuerUrl, final Response pSamlResponse, final AuthnRequest pSamlRequest,
 				final String pAssertionConsumerServiceUrl) {
 			LOGGER.trace("> build()");
 
-			String lAssertionConsumerServiceUrl = null;
+			String lAssertionConsumerServiceUrl = pAssertionConsumerServiceUrl;
 
 			final String lUserId = pSamlPrincipal.getId();
 
@@ -605,14 +597,44 @@ public class ServiceProvider implements Serializable {
 			lResponse.setDestination(lAssertionConsumerServiceUrl);
 
 			// add <Assertion>
-			Assertion lAssertion = getSamlAssertionBuilder().build(pSamlPrincipal, pIdpIssuerUrl, pSamlResponse, pSamlRequest, pAssertionConsumerServiceUrl);
+			Assertion lAssertion = getSamlAssertionBuilder().build(pSamlPrincipal, pIdpIssuerUrl, lResponse, pSamlRequest, lAssertionConsumerServiceUrl);
 
 			lResponse.getAssertions().add(lAssertion);
 
-			// TODO sign the response if necessary
+			// add the <Signature> to the SAML <Response>
+			Signature lResponseSignature = null;
+			if (this.credential != null) {
+				lResponseSignature = SAML2ResponseBuilder.attachSignatureToSignableSAMLObject(lResponse, this.credential);
+			}
+
+			// Marshall the Object Tree
+			try {
+				Configuration.getMarshallerFactory().getMarshaller(lResponse).marshall(lResponse);
+			} catch (MarshallingException e) {
+				LOGGER.error("Unable to marshal Object Tree", e);
+			}
+
+			// Computing the Signature Value don't forget to unmarshall the response before signing object
+			// !_!!!!_!!!!_!_!_!!!!!!!!!!_!!!!_!!!!_!_!_!!!!!!!!!!_
+			if (lResponseSignature != null) {
+				try {
+					Signer.signObject(lResponseSignature);
+					LOGGER.debug("Signing ");
+				} catch (SignatureException e) {
+					LOGGER.error("Unable to compute signature", e);
+				}
+			}
 
 			LOGGER.trace("< build()");
 			return lResponse;
+		}
+
+		/**
+		 * @param pCredential
+		 *            the credential to set
+		 */
+		public void setCredential(final Credential pCredential) {
+			credential = pCredential;
 		}
 
 		/**
@@ -639,7 +661,6 @@ public class ServiceProvider implements Serializable {
 
 	public static class SamlAssertionBuilderImpl implements SamlAssertionBuilder {
 
-		@NotNull
 		private Credential		credential;
 
 		/**
@@ -647,16 +668,18 @@ public class ServiceProvider implements Serializable {
 		 */
 		private ArrayList<URI>	restrictedURIs;
 
-		public SamlAssertionBuilderImpl(@NotNull X509Certificate x509certificate, @NotNull PrivateKey privateKey) {
-			this.credential = new BasicX509Credential();
-			((BasicX509Credential) this.credential).setEntityCertificate(x509certificate);
-			((BasicCredential) this.credential).setPrivateKey(privateKey);
+		private String			authnContextClassRef	= AuthnContext.UNSPECIFIED_AUTHN_CTX;
+
+		private String			subjectNameIdFormat		= NameIDType.UNSPECIFIED;
+
+		public SamlAssertionBuilderImpl() {
+			super();
 		}
 
 		@Override
 		public Assertion build(final CasToSaml2Principal pSamlPrincipal, final String pIdpIssuerUrl, final Response pSamlResponse, final AuthnRequest pSamlRequest,
 				final String pAssertionConsumerServiceUrl) {
-			LOGGER.trace("> enrich()");
+			LOGGER.trace("> build()");
 
 			Assertion lAssertion = SAML2ResponseBuilder.buildAssertion(pSamlResponse);
 			DateTime lDebutValidite = pSamlResponse.getIssueInstant();
@@ -664,9 +687,6 @@ public class ServiceProvider implements Serializable {
 
 			// add the <Issuer> to the SAML <Assertion>
 			SAML2ResponseBuilder.addAssertionIssuer(lAssertion, pIdpIssuerUrl);
-
-			// add the <Signature> to the SAML <Assertion>
-			Signature lAssertionSignature = SAML2ResponseBuilder.attachSignatureToSignableSAMLObject(lAssertion, this.credential);
 
 			// add the <Subject> to the SAML <Assertion>
 			String lInResponseTo = pSamlRequest.getID();
@@ -678,7 +698,7 @@ public class ServiceProvider implements Serializable {
 					LOGGER.error("Error while creating URI instance from '" + pAssertionConsumerServiceUrl + "'", e);
 				}
 			}
-			SAML2ResponseBuilder.addSubject(lAssertion, pSamlPrincipal.getId(), lDebutValidite, lFinValidite, lInResponseTo, lRecipient);
+			SAML2ResponseBuilder.addSubject(lAssertion, pSamlPrincipal.getId(), lDebutValidite, lFinValidite, lInResponseTo, lRecipient, this.subjectNameIdFormat);
 
 			// add the <Conditions> to the SAML <Assertion>
 			SAML2ResponseBuilder.addConditions(lAssertion, lDebutValidite, lFinValidite, this.restrictedURIs);
@@ -688,7 +708,14 @@ public class ServiceProvider implements Serializable {
 			SAML2ResponseBuilder.addAttributeStatement(lAssertion, lAttStat);
 
 			// add the <AuthnStatement> to the SAML <Assertion>
-			SAML2ResponseBuilder.addAuthnStatement(lAssertion, lDebutValidite, lFinValidite, null, null);
+			SAML2ResponseBuilder.addAuthnStatement(lAssertion, lDebutValidite, lFinValidite, null, null, this.authnContextClassRef);
+
+
+			// add the <Signature> to the SAML <Assertion>
+			Signature lAssertionSignature = null;
+			if (this.credential != null) {
+				lAssertionSignature = SAML2ResponseBuilder.attachSignatureToSignableSAMLObject(lAssertion, this.credential);
+			}
 
 			// Marshall the Object Tree
 			try {
@@ -698,13 +725,16 @@ public class ServiceProvider implements Serializable {
 			}
 
 			// Computing the Signature Value
-			try {
-				Signer.signObject(lAssertionSignature);
-			} catch (SignatureException e) {
-				LOGGER.error("Unable to compute signature", e);
+			if (lAssertionSignature != null) {
+				try {
+					Signer.signObject(lAssertionSignature);
+				} catch (SignatureException e) {
+					LOGGER.error("Unable to compute signature", e);
+				}
 			}
 
-			LOGGER.trace("< enrich()");
+
+			LOGGER.trace("< build()");
 			return lAssertion;
 		}
 
@@ -712,10 +742,13 @@ public class ServiceProvider implements Serializable {
 			LOGGER.trace("> buildAttributeStatement()");
 
 			AttributeStatement lAttStat = null;
-			Set<Entry<String, Object>> lCasToSamlAttributes = pSamlPrincipal.getAttributes().entrySet();
-			for (Entry<String, Object> lEntry : lCasToSamlAttributes) {
-				Attribute lSamlAttribute = (Attribute) lEntry.getValue();
-				lAttStat = SAML2ResponseBuilder.addAttributeToAttributeStatement(lAttStat, lSamlAttribute);
+			Map<String, Object> lCasToSamlAttributesMap = pSamlPrincipal.getAttributes();
+			if (lCasToSamlAttributesMap != null) {
+				Set<Entry<String, Object>> lCasToSamlAttributesSet = lCasToSamlAttributesMap.entrySet();
+				for (Entry<String, Object> lEntry : lCasToSamlAttributesSet) {
+					Attribute lSamlAttribute = (Attribute) lEntry.getValue();
+					lAttStat = SAML2ResponseBuilder.addAttributeToAttributeStatement(lAttStat, lSamlAttribute);
+				}
 			}
 
 			LOGGER.trace("< buildAttributeStatement()");
@@ -736,6 +769,22 @@ public class ServiceProvider implements Serializable {
 		 */
 		public void setRestrictedURIs(final ArrayList<URI> pRestrictedURIs) {
 			restrictedURIs = pRestrictedURIs;
+		}
+
+		/**
+		 * @param pAuthnContextClassRef
+		 *            the authnContextClassRef to set
+		 */
+		public void setAuthnContextClassRef(final String pAuthnContextClassRef) {
+			authnContextClassRef = pAuthnContextClassRef;
+		}
+
+		/**
+		 * @param pSubjectNameIdFormat
+		 *            the subjectNameIdFormat to set
+		 */
+		public void setSubjectNameIdFormat(String pSubjectNameIdFormat) {
+			subjectNameIdFormat = pSubjectNameIdFormat;
 		}
 	}
 
@@ -763,20 +812,21 @@ public class ServiceProvider implements Serializable {
 		@Override
 		public Map<String, Object> getAttributes() {
 			LOGGER.trace("> getAttributes()");
-
+			Map lOutAttributeMap = null;
 			List<AttributeMapper> lMappingList = this.casPrincipalMapper.getAttributesMappingList();
-			Map lOutAttributeMap = new HashMap<String, Attribute>(this.casPrincipalMapper.getAttributesMappingList().size());
-			for (AttributeMapper lAttributeMapper : lMappingList) {
-				String lKey = lAttributeMapper.getMappedCasPrincipalAttributeName();
-				Object lValue = lAttributeMapper.getSamlAttributeValue(this.casPrincipal);
-				String lName = lAttributeMapper.getSamlAttributeName();
-				String lNameFormat = lAttributeMapper.getSamlAttributeNameFormat();
-				String lFriendlyName = lAttributeMapper.getSamlAttributeFriendlyName();
-				
-				Attribute lSamlAttribute = SAML2ResponseBuilder.buildAttribute(lName, lNameFormat, lFriendlyName, lValue);
-				lOutAttributeMap.put(lKey, lSamlAttribute);
-			}
+			if (lMappingList != null && !lMappingList.isEmpty()) {
+				lOutAttributeMap = new HashMap<String, Attribute>(lMappingList.size());
+				for (AttributeMapper lAttributeMapper : lMappingList) {
+					String lKey = lAttributeMapper.getMappedCasPrincipalAttributeName();
+					Object lValue = lAttributeMapper.getSamlAttributeValue(this.casPrincipal);
+					String lName = lAttributeMapper.getSamlAttributeName();
+					String lNameFormat = lAttributeMapper.getSamlAttributeNameFormat();
+					String lFriendlyName = lAttributeMapper.getSamlAttributeFriendlyName();
 
+					Attribute lSamlAttribute = SAML2ResponseBuilder.buildAttribute(lName, lNameFormat, lFriendlyName, lValue);
+					lOutAttributeMap.put(lKey, lSamlAttribute);
+				}
+			}
 			LOGGER.trace("< getAttributes()");
 			return lOutAttributeMap;
 		}
